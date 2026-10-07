@@ -1,0 +1,15 @@
+# Build
+.bolt-python-build/
+
+# Claude Code
+.claude/*.local.json
+
+# Git
+.worktrees/
+
+# macOS
+.DS_Store
+
+# Slack
+*/.slack/apps.json
+*/.slack/apps.dev.json
