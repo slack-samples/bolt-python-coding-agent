@@ -4,8 +4,6 @@ updates:
     directories:
       - "/"
       - "/openai-agents-sdk"
-      - "/pydantic-ai"
-      - "/claude-agent-sdk"
     schedule:
       interval: "weekly"
     labels:

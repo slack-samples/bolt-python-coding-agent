@@ -1,5 +1,5 @@
 [project]
-name = "bolt-python-support-agent-openai-agentkit"
+name = "bolt-python-coding-agent-openai"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
@@ -15,12 +15,12 @@ test = [
     "pytest==9.1.1",
 ]
 dev = [
-    "bolt-python-support-agent-openai-agentkit[test]",
+    "bolt-python-coding-agent-openai[test]",
     "ruff==0.16.10",
 ]
 
 [tool.setuptools.packages.find]
-include = ["agent*", "listeners*", "thread_context*"]
+include = ["agent*", "listeners*"]
 
 [tool.ruff]
 [tool.ruff.lint]

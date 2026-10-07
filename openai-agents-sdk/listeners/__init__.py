@@ -1,9 +1,9 @@
 from slack_bolt import App
 
-from listeners import actions, events, views
+from listeners import actions, commands, events
 
 
 def register_listeners(app: App):
     actions.register(app)
+    commands.register(app)
     events.register(app)
-    views.register(app)

@@ -13,8 +13,6 @@ jobs:
       matrix:
         directory:
           - openai-agents-sdk
-          - pydantic-ai
-          - claude-agent-sdk
     defaults:
       run:
         working-directory: ${{ matrix.directory }}

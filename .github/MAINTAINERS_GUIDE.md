@@ -1,17 +1,15 @@
 # Maintainers Guide
 
-## Using Bolt Framework Development Builds
+## Dependencies
 
-This repo vendors a pre-release build of [`slack-bolt`](https://github.com/slackapi/bolt-python) from the `main` branch. The `.whl` wheel lives in `vendor/` and is referenced by each implementation's `requirements.txt`.
+Dependabot opens weekly updates for each implementation directory and for GitHub Actions. Patch and minor updates are approved and merged automatically by `.github/workflows/dependencies.yml` once checks pass. Major updates wait for a maintainer.
 
-Two [Claude Code slash commands](https://docs.anthropic.com/en/docs/claude-code/slash-commands) are available to manage this:
+Each implementation pins its dependencies in both `requirements.txt` and `pyproject.toml`, so keep the two in sync when updating by hand.
 
-### `/vendor-bolt` — Update the vendored wheel
+## Adding an implementation
 
-Clones bolt-python `main`, builds a wheel with a local version identifier (e.g. `1.2.3+abc1234`), replaces the wheel in `vendor/`, and updates all `requirements.txt` references. Use this to pull in the latest unreleased bolt-python changes.
+Each framework is a standalone sample in its own directory. When adding one, also add its directory to:
 
-### `/unvendor-bolt` — Switch to the published PyPI package
-
-Removes the `vendor/` directory, replaces the wheel reference in all `requirements.txt` and `pyproject.toml` files with the latest `slack-bolt` version from PyPI, and re-enables Dependabot updates. Use this when the vendored changes have been released and the repo should track the public package.
-
-Both commands leave changes uncommitted for review.
+- the `matrix.directory` lists in `.github/workflows/ruff.yml` and `.github/workflows/tests.yml`
+- the pip `directories` list in `.github/dependabot.yml`
+- the framework table in the root `README.md`

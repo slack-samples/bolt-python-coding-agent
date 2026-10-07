@@ -1,11 +1,9 @@
 from logging import Logger
 
-from slack_bolt import BoltContext, Say, SayStream, SetStatus
+from slack_bolt import BoltContext
 from slack_sdk import WebClient
 
-from agent import AgentDeps, run_agent
-from listeners.views.feedback_builder import build_feedback_blocks
-from thread_context import conversation_store
+from agent import run_turn, session_store
 
 
 def handle_message(
@@ -13,82 +11,36 @@ def handle_message(
     context: BoltContext,
     event: dict,
     logger: Logger,
-    say: Say,
-    say_stream: SayStream,
-    set_status: SetStatus,
 ):
-    """Handle messages sent to the agent via DM or in threads the bot is part of."""
-    # Skip message subtypes (edits, deletes, etc.) and bot messages.
-    if event.get("subtype"):
+    """Handle a message inside a code channel as a turn — no @mention needed.
+
+    In a code channel the user is talking to the agent directly, so we respond
+    to plain messages. We only act when the channel is one of our active code
+    channel sessions; messages elsewhere are ignored here (mentions start new
+    channels via app_mentioned).
+    """
+    # Ignore edits, joins, or bot posts.
+    if event.get("subtype") or event.get("bot_id"):
         return
-    if event.get("bot_id"):
+    text = event.get("text", "").strip()
+    # A message that mentions the agent also arrives as app_mention, which runs the turn.
+    if not text or f"<@{context.bot_user_id}>" in text:
         return
 
-    is_dm = event.get("channel_type") == "im"
-    is_thread_reply = event.get("thread_ts") is not None
-
-    if is_dm:
-        pass
-    elif is_thread_reply:
-        # Channel thread replies are handled only if the bot is already engaged
-        history = conversation_store.get_history(context.channel_id, event["thread_ts"])
-        if history is None:
-            return
-    else:
-        # Top-level channel messages are handled by app_mentioned
+    channel_id = context.channel_id
+    session = session_store.get(channel_id)
+    if session is None:
         return
 
     try:
-        channel_id = context.channel_id
-        text = event.get("text", "")
-        thread_ts = event.get("thread_ts") or event["ts"]
-
-        user_id = context.user_id
-
-        # Get conversation history
-        history = conversation_store.get_history(channel_id, thread_ts)
-
-        # Set assistant thread status with loading messages
-        set_status(
-            status="Thinking...",
-            loading_messages=[
-                "Teaching the hamsters to type faster…",
-                "Untangling the internet cables…",
-                "Consulting the office goldfish…",
-                "Polishing up the response just for you…",
-                "Convincing the AI to stop overthinking…",
-            ],
-        )
-
-        # Build input for the agent
-        if history:
-            input_items = history + [{"role": "user", "content": text}]
-        else:
-            input_items = text
-
-        # Run the agent
-        deps = AgentDeps(
+        run_turn(
             client=client,
-            user_id=user_id,
-            channel_id=channel_id,
-            thread_ts=thread_ts,
-            message_ts=event["ts"],
-            user_token=context.user_token,
+            session=session,
+            text=text,
+            user_id=context.user_id,
         )
-        result = run_agent(input_items, deps)
-
-        # Stream response in thread with feedback buttons
-        streamer = say_stream()
-        streamer.append(markdown_text=result.final_output)
-        feedback_blocks = build_feedback_blocks()
-        streamer.stop(blocks=feedback_blocks)
-
-        # Store conversation history
-        conversation_store.set_history(channel_id, thread_ts, result.to_input_list())
-
     except Exception as e:
-        logger.exception("Failed to handle message")
-        say(
-            text=f":warning: Something went wrong! ({e})",
-            thread_ts=event.get("thread_ts") or event.get("ts"),
+        logger.exception("Failed to handle code channel message")
+        client.chat_postMessage(
+            channel=channel_id, text=f":warning: Something went wrong ({e})."
         )
