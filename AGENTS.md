@@ -34,7 +34,7 @@ pytest
 openai-agents-sdk/   # OpenAI Agents SDK implementation
 ```
 
-CI runs ruff and pytest against each directory with a matrix in `.github/workflows/ruff.yml` and `.github/workflows/tests.yml`. Dependabot watches each directory separately. When adding an implementation, add its directory to both workflow matrices and to `.github/dependabot.yml`.
+CI runs ruff and pytest against each directory with a matrix in `.github/workflows/ruff.yml` and `.github/workflows/tests.yml`. Dependabot watches each directory separately. When adding an implementation, add its directory to both workflow matrices, to `.github/dependabot.yml`, and to the framework table in the root `README.md`.
 
 ## Architecture
 
