@@ -40,7 +40,7 @@ CI runs ruff and pytest against each directory with a matrix in `.github/workflo
 
 Three layers: **app.py** -> **listeners/** -> **agent/**.
 
-- **`app.py`** starts Bolt in Socket Mode and calls `register_listeners(app)`.
+- **`app.py`** starts Bolt in Socket Mode and calls `register_listeners(app)`. **`app_oauth.py`** is the alternative entry point for OAuth over HTTP.
 - **`listeners/`** holds Bolt handlers only, grouped by Slack feature (`actions/`, `commands/`, `events/`). Each sub-package has a `register(app)` function.
 - **`agent/`** holds everything else: the agents and their prompts, one file per tool under `agent/tools/`, the session store, and command approvals.
 
