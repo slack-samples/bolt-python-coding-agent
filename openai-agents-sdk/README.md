@@ -205,13 +205,11 @@ slack install -E local
 5. Update your `.env` OAuth environment variables:
    - Run `slack app settings` to open App Settings
    - Copy **Client ID**, **Client Secret**, and **Signing Secret**
-   - Update `SLACK_REDIRECT_URI` in `.env` with your ngrok domain
 
 ```sh
 SLACK_CLIENT_ID=YOUR_CLIENT_ID
 SLACK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 SLACK_SIGNING_SECRET=YOUR_SIGNING_SECRET
-SLACK_REDIRECT_URI=https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/oauth_redirect
 ```
 
 6. Start the app:
@@ -220,7 +218,7 @@ SLACK_REDIRECT_URI=https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/oauth_redir
 slack run app_oauth.py
 ```
 
-7. Click the install URL printed in the terminal to install the app to your workspace via OAuth.
+7. Open `https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/install` to install the app to your workspace via OAuth.
 
 </details>
 
@@ -230,17 +228,14 @@ slack run app_oauth.py
 
 3. Create your Slack app at [api.slack.com/apps/new](https://api.slack.com/apps/new) using [`manifest.json`](./manifest.json). Before pasting the manifest, set `socket_mode_enabled` to `false` and replace `ngrok-free.app` with your ngrok domain.
 
-4. Install the app to your workspace and copy the following values into your `.env`:
-   - **Signing Secret** — from _Basic Information_
-   - **Bot User OAuth Token** — from _OAuth & Permissions_
-   - **Client ID** and **Client Secret** — from _Basic Information_
+4. Copy the following values from _Basic Information_ into your `.env`:
+   - **Signing Secret**
+   - **Client ID** and **Client Secret**
 
 ```sh
-SLACK_BOT_TOKEN=xoxb-YOUR_BOT_TOKEN
 SLACK_CLIENT_ID=YOUR_CLIENT_ID
 SLACK_CLIENT_SECRET=YOUR_CLIENT_SECRET
 SLACK_SIGNING_SECRET=YOUR_SIGNING_SECRET
-SLACK_REDIRECT_URI=https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/oauth_redirect
 ```
 
 5. Start the app:
@@ -249,11 +244,11 @@ SLACK_REDIRECT_URI=https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/oauth_redir
 python3 app_oauth.py
 ```
 
-6. Click the install URL printed in the terminal to install the app to your workspace via OAuth.
+6. Open `https://YOUR_NGROK_SUBDOMAIN.ngrok-free.app/slack/install` to install the app to your workspace via OAuth.
 
 </details>
 
-> **Note:** Each time ngrok restarts, it generates a new URL. You'll need to update the ngrok domain in `manifest.json`, `SLACK_REDIRECT_URI` in your `.env`, and re-install the app.
+> **Note:** Each time ngrok restarts, it generates a new URL. You'll need to update the ngrok domain in `manifest.json` and re-install the app.
 
 </details>
 
