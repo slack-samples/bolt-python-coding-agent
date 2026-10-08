@@ -278,7 +278,8 @@ def deliver_outcome(*, outcome: RunOutcome, deps: AgentDeps) -> None:
     # Persist conversation history so the next turn resumes with context.
     session.history = outcome.history
     session_store.put(session)
-    # After the stop button, post nothing and leave the status to Slack.
+    # After the stop button, post nothing. The stop handler already confirmed
+    # the stop and moved the session out of processing.
     if session.stopped:
         return
 

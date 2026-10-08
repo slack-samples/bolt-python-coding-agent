@@ -26,7 +26,26 @@ class TestAgentSessionStopped:
         session_store.discard("C_CODE")
         pending_store.discard("C_CODE")
 
-    def test_stop_drops_the_pending_approval(self):
+    def stop(self):
+        handle_agent_session_stopped(
+            client=self.client,
+            context=self.context,
+            event={"channel": "C_CODE", "streaming_message_ts": []},
+            logger=test_logger,
+        )
+
+    def test_stop_confirms_and_leaves_processing(self):
+        self.stop()
+
+        assert self.session.stopped is True
+        self.client.chat_postMessage.assert_called_once()
+        assert self.client.chat_postMessage.call_args.kwargs["channel"] == "C_CODE"
+        assert "Stopped" in self.client.chat_postMessage.call_args.kwargs["text"]
+        self.client.agents_sessions_setStatus.assert_called_once_with(
+            channel_id="C_CODE", status="active"
+        )
+
+    def test_stop_drops_the_pending_approval_and_its_buttons(self):
         pending_store.put(
             "C_CODE",
             PendingApproval(
@@ -38,16 +57,17 @@ class TestAgentSessionStopped:
             ),
         )
 
-        handle_agent_session_stopped(context=self.context, event={"channel": "C_CODE"})
+        self.stop()
 
-        assert self.session.stopped is True
         assert pending_store.pop("C_CODE", "9.1") is None
+        update = self.client.chat_update.call_args.kwargs
+        assert update["ts"] == "9.1"
+        assert "Stopped before running" in update["text"]
+        assert "rm -rf build" in update["text"]
 
-    def test_stopped_session_posts_nothing(self):
+    def test_stopped_turn_posts_nothing_more(self):
         def stop_mid_run(_input, _deps):
-            handle_agent_session_stopped(
-                context=self.context, event={"channel": "C_CODE"}
-            )
+            self.stop()
             return RunOutcome(final_output="Done.", history=[])
 
         with patch("agent.agent.start_run", side_effect=stop_mid_run):
@@ -58,10 +78,12 @@ class TestAgentSessionStopped:
                 logger=test_logger,
             )
 
-        assert self.session.stopped is True
-        self.client.chat_postMessage.assert_not_called()
+        # Only the stop confirmation is posted, not the turn's "Done.".
+        posts = [c.kwargs["text"] for c in self.client.chat_postMessage.call_args_list]
+        assert len(posts) == 1
+        assert "Stopped" in posts[0]
         statuses = [
             c.kwargs["status"]
             for c in self.client.agents_sessions_setStatus.call_args_list
         ]
-        assert statuses == ["processing"]
+        assert statuses == ["processing", "active"]

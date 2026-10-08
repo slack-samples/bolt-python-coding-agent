@@ -130,9 +130,10 @@ class PendingApprovalStore:
                 return None
             return self._store.pop(channel_id)
 
-    def discard(self, channel_id: str) -> None:
+    def discard(self, channel_id: str) -> PendingApproval | None:
+        """Drop the channel's paused run, whatever its message, and return it."""
         with self._lock:
-            self._store.pop(channel_id, None)
+            return self._store.pop(channel_id, None)
 
 
 pending_store = PendingApprovalStore()
