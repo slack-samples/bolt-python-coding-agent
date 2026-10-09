@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from agents import RunResult, RunState
+from agents import RunResult, RunState, ToolApprovalItem
 
 from agent.agent import _settle
 
@@ -24,12 +24,21 @@ class TestSettle:
         assert outcome.needs_approval is False
         assert outcome.history == [{"role": "assistant", "content": "Done."}]
 
-    def test_paused_run_keeps_its_history_and_approval(self):
-        item = Mock()
+    def test_paused_run_answers_the_pending_call_in_its_history(self):
+        item = Mock(spec=ToolApprovalItem, call_id="call_1")
         result = run_result([item])
 
         outcome = _settle(result)
 
         assert outcome.pending_item is item
         assert outcome.pending_state is result.to_state.return_value
-        assert outcome.history == [{"role": "assistant", "content": "Done."}]
+        # A stopped or replaced run leaves this history behind, and every call
+        # in it needs an output or the next request fails.
+        assert outcome.history == [
+            {"role": "assistant", "content": "Done."},
+            {
+                "type": "function_call_output",
+                "call_id": "call_1",
+                "output": "Not run. The user didn't approve this command.",
+            },
+        ]

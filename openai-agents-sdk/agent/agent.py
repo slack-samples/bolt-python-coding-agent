@@ -166,6 +166,17 @@ def _settle(result) -> RunOutcome:
     state = result.to_state()
     interruptions = state.get_interruptions()
     if interruptions:
+        # The history ends with calls still waiting on approval. Give each one
+        # an output so the history stays valid if the run is stopped or replaced
+        # instead of resumed. A resumed run replaces this history with its own.
+        history += [
+            {
+                "type": "function_call_output",
+                "call_id": item.call_id,
+                "output": "Not run. The user didn't approve this command.",
+            }
+            for item in interruptions
+        ]
         # One command at a time keeps the sample's approval UX simple.
         return RunOutcome(
             pending_state=state,
