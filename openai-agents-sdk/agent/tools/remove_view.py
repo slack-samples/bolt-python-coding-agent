@@ -3,9 +3,10 @@ from agents.run_context import RunContextWrapper
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def remove_view(wrapper: RunContextWrapper[AgentDeps], view_id: str) -> str:
     """Remove a view tab from the code channel.
 

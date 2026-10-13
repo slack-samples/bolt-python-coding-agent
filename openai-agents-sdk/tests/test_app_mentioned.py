@@ -4,7 +4,8 @@ from unittest.mock import Mock, patch
 from slack_bolt import BoltContext
 from slack_sdk import WebClient
 
-from agent import CodeChannelSession, RunOutcome, session_store
+from agent import CodeChannelSession, session_store
+from agent.agent import RunOutcome
 from agent.tools import create_code_channel
 from listeners.events.app_mentioned import handle_app_mentioned
 from tests.test_tools import invoke
@@ -32,7 +33,7 @@ class TestAppMentioned:
         with (
             patch("listeners.events.app_mentioned.answer_request", side_effect=answer),
             patch(
-                "agent.agent.start_run",
+                "agent.turns.start_run",
                 return_value=RunOutcome(final_output="Done.", history=self.history),
             ) as start_run,
         ):
@@ -99,7 +100,7 @@ class TestAppMentioned:
         session_store.put(CodeChannelSession(channel_id="C_CODE"))
         self.context.channel_id = "C_CODE"
 
-        with patch("agent.agent.start_run", side_effect=RuntimeError("boom")):
+        with patch("agent.turns.start_run", side_effect=RuntimeError("boom")):
             handle_app_mentioned(
                 client=self.client,
                 context=self.context,
@@ -109,8 +110,12 @@ class TestAppMentioned:
 
         warning = self.client.chat_postMessage.call_args.kwargs
         assert warning["channel"] == "C_CODE"
-        assert warning["thread_ts"] is None
+        assert "thread_ts" not in warning
         assert "boom" in warning["text"]
+        # The failed turn moves the session out of processing.
+        self.client.agents_sessions_setStatus.assert_called_with(
+            channel_id="C_CODE", status="active"
+        )
 
     def test_mention_in_an_unknown_code_channel_adopts_it(self):
         self.context.channel_id = "C_ADOPTED"
@@ -126,7 +131,7 @@ class TestAppMentioned:
         }
 
         with patch(
-            "agent.agent.start_run",
+            "agent.turns.start_run",
             return_value=RunOutcome(final_output="Hi.", history=self.history),
         ):
             handle_app_mentioned(

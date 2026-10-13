@@ -1,16 +1,22 @@
 import asyncio
 import json
-from unittest.mock import Mock
+import subprocess
+from unittest.mock import Mock, patch
 
+from agents import ToolInputGuardrailData
 from agents.tool_context import ToolContext
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from agent import AgentDeps, CodeChannelSession, RequestDeps
+from agent import CodeChannelSession, RequestDeps
+from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 from agent.tools import (
     archive_channel,
+    clone_repo,
     create_code_channel,
     list_views,
+    publish_diff,
     publish_html_view,
     read_plan,
     remove_view,
@@ -33,6 +39,15 @@ def invoke(tool, deps: AgentDeps, **args) -> str:
         tool_arguments=json.dumps(args),
     )
     return asyncio.run(tool.on_invoke_tool(ctx, json.dumps(args)))
+
+
+def git(workdir, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(workdir), *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
 
 
 class TestTools:
@@ -266,3 +281,73 @@ class TestTools:
         self.client.agents_sessions_rename.side_effect = slack_error("not_authorized")
 
         assert "not_authorized" in invoke(rename_session, self.deps, title="x")
+
+    def test_stopped_session_skips_tool_calls(self):
+        ctx = ToolContext(
+            context=self.deps,
+            tool_name="set_context_bar",
+            tool_call_id="call_1",
+            tool_arguments="{}",
+        )
+        data = ToolInputGuardrailData(context=ctx, agent=Mock())
+
+        assert session_stopped.guardrail_function(data).behavior["type"] == "allow"
+        self.session.stopped = True
+        rejected = session_stopped.guardrail_function(data).behavior
+        assert rejected["type"] == "reject_content"
+        assert "stopped" in rejected["message"]
+
+    def test_clone_repo_refuses_local_paths_and_options(self):
+        with patch("agent.tools.clone_repo.subprocess.run") as run:
+            for url in ["/etc", "file:///etc", "--upload-pack=touch x", "ext::sh"]:
+                assert "Can't clone" in invoke(clone_repo, self.deps, repo_url=url)
+        run.assert_not_called()
+
+    def test_clone_repo_ends_the_options_before_the_url(self):
+        with patch("agent.tools.clone_repo.subprocess.run") as run:
+            run.return_value = Mock(returncode=0, stdout="main\n", stderr="")
+            invoke(clone_repo, self.deps, repo_url="https://example.com/repo.git")
+
+        clone = run.call_args_list[0].args[0]
+        assert clone[clone.index("--") + 1] == "https://example.com/repo.git"
+        assert clone[clone.index("--config") + 1] == "core.symlinks=false"
+
+    def test_publish_diff_includes_commits_on_the_default_branch_and_new_files(
+        self, tmp_path
+    ):
+        git(tmp_path, "init", "-q", "-b", "main")
+        (tmp_path / "README.md").write_text("hello\n")
+        git(tmp_path, "add", ".")
+        git(
+            tmp_path,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qm",
+            "init",
+        )
+        self.session.workdir = str(tmp_path)
+        self.session.base_branch = "main"
+        self.session.base_commit = git(tmp_path, "rev-parse", "HEAD")
+        # A commit straight onto main, plus a file git doesn't track yet.
+        (tmp_path / "README.md").write_text("hello world\n")
+        git(
+            tmp_path,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-qam",
+            "edit",
+        )
+        (tmp_path / "NEW.md").write_text("new\n")
+
+        invoke(publish_diff, self.deps)
+
+        content = self.client.agents_conversations_setView.call_args.kwargs["content"]
+        assert "+hello world" in content
+        assert "+++ b/NEW.md" in content
+        assert "+new" in content

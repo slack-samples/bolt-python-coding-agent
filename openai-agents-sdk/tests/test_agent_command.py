@@ -1,12 +1,10 @@
-import logging
 from unittest.mock import Mock, patch
 
 from slack_sdk import WebClient
 
-from agent import CodeChannelSession, RunOutcome, session_store
+from agent import CodeChannelSession, session_store
+from agent.agent import RunOutcome
 from listeners.commands.agent_command import handle_agent_command
-
-test_logger = logging.getLogger(__name__)
 
 
 class TestAgentCommand:
@@ -22,7 +20,7 @@ class TestAgentCommand:
         session_store.put(CodeChannelSession(channel_id="C_CODE"))
 
         with patch(
-            "agent.agent.start_run",
+            "agent.turns.start_run",
             return_value=RunOutcome(final_output="Tests passed.", history=[]),
         ) as start_run:
             handle_agent_command(
@@ -35,15 +33,14 @@ class TestAgentCommand:
                 },
                 client=self.client,
                 respond=self.respond,
-                logger=test_logger,
             )
 
         self.ack.assert_called_once()
-        assert start_run.call_args.args[0][-1]["content"] == "/run-tests unit"
+        assert start_run.call_args.args[1] == "/run-tests unit"
         self.respond.assert_not_called()
 
     def test_command_without_a_session_explains_itself(self):
-        with patch("agent.agent.start_run") as start_run:
+        with patch("agent.turns.start_run") as start_run:
             handle_agent_command(
                 ack=self.ack,
                 command={
@@ -53,7 +50,6 @@ class TestAgentCommand:
                 },
                 client=self.client,
                 respond=self.respond,
-                logger=test_logger,
             )
 
         self.ack.assert_called_once()

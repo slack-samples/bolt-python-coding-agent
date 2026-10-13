@@ -1,5 +1,3 @@
-from logging import Logger
-
 from slack_bolt import Ack, Respond
 from slack_sdk import WebClient
 
@@ -11,7 +9,6 @@ def handle_agent_command(
     command: dict,
     client: WebClient,
     respond: Respond,
-    logger: Logger,
 ):
     """Handle a slash command the agent registered in a code channel.
 
@@ -26,13 +23,9 @@ def handle_agent_command(
         return
 
     text = f"{command['command']} {command.get('text', '')}".strip()
-    try:
-        run_turn(
-            client=client,
-            session=session,
-            text=text,
-            user_id=command["user_id"],
-        )
-    except Exception as e:
-        logger.exception("Failed to handle agent command")
-        respond(f":warning: Something went wrong ({e}).")
+    run_turn(
+        client=client,
+        session=session,
+        text=text,
+        user_id=command["user_id"],
+    )

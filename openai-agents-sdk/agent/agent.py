@@ -1,3 +1,10 @@
+"""The OpenAI Agents SDK side of the coding agent.
+
+Everything that touches the SDK lives here and in `agent/tools/`. The turn
+handling in `agent/turns.py` calls only `start_run` and `resume_run` and reads
+the `RunOutcome` they return, so it never imports the SDK.
+"""
+
 import json
 import logging
 import threading
@@ -7,22 +14,15 @@ from agents import (
     Agent,
     OpenAIProvider,
     RunConfig,
+    RunErrorHandlerInput,
+    RunErrorHandlerResult,
     Runner,
     RunState,
     ToolApprovalItem,
 )
 from openai import AsyncOpenAI
-from slack_sdk import WebClient
-from slack_sdk.models.blocks import (
-    ActionsBlock,
-    ButtonElement,
-    MarkdownTextObject,
-    SectionBlock,
-)
 
-from agent.approvals import PendingApproval, pending_store
 from agent.deps import AgentDeps, RequestDeps
-from agent.store import CodeChannelSession, session_store
 from agent.tools import (
     archive_channel,
     clone_repo,
@@ -140,24 +140,33 @@ agent = Agent[AgentDeps](
 
 
 @dataclass
+class PausedRun:
+    """The SDK's handle on a run paused for approval, passed back to `resume_run`."""
+
+    state: RunState
+    item: ToolApprovalItem
+
+
+@dataclass
 class RunOutcome:
     """The result of a (possibly interrupted) agent run.
 
-    Exactly one of `final_output` or `pending` is set:
+    Exactly one of `final_output` or `paused` is set:
     - `final_output` — the run completed; this is the text to post.
-    - `pending_state` + `pending_item` — the run paused on a command that needs
-      approval. The listener posts Approve/Deny buttons and resumes later.
+    - `paused` + `command` — the run paused on a command that needs approval.
+      The listener posts Approve/Deny buttons and resumes later.
     """
 
     final_output: str | None = None
-    pending_state: RunState | None = None
-    pending_item: ToolApprovalItem | None = None
+    paused: PausedRun | None = None
+    # The shell command waiting on approval, shown on the approval message.
+    command: str | None = None
     # Always set — the conversation so far, persisted so the next turn has context.
     history: list = field(default_factory=list)
 
     @property
     def needs_approval(self) -> bool:
-        return self.pending_item is not None
+        return self.paused is not None
 
 
 def _settle(result) -> RunOutcome:
@@ -178,12 +187,25 @@ def _settle(result) -> RunOutcome:
             for item in interruptions
         ]
         # One command at a time keeps the sample's approval UX simple.
+        item = interruptions[0]
+        # The SDK gives the tool call's arguments as a JSON string.
+        arguments = json.loads(item.arguments or "{}")
         return RunOutcome(
-            pending_state=state,
-            pending_item=interruptions[0],
+            paused=PausedRun(state=state, item=item),
+            command=arguments.get("command", ""),
             history=history,
         )
     return RunOutcome(final_output=result.final_output, history=history)
+
+
+def _out_of_turns(_data: RunErrorHandlerInput) -> RunErrorHandlerResult:
+    """End a turn that used every model call with a message, keeping its history."""
+    return RunErrorHandlerResult(
+        final_output=(
+            f"I used all {MAX_TURNS} steps I get in one turn before finishing. "
+            "Send a message and I'll pick up where I left off."
+        ),
+    )
 
 
 _thread = threading.local()
@@ -213,144 +235,34 @@ def answer_request(text: str, deps: RequestDeps) -> str | None:
     return result.final_output
 
 
-def start_run(input_items, deps: AgentDeps) -> RunOutcome:
+def start_run(history: list, text: str, deps: AgentDeps) -> RunOutcome:
     """Start an agent turn. May complete, or pause awaiting command approval."""
     result = Runner.run_sync(
         agent,
-        input=input_items,
+        input=history + [{"role": "user", "content": text}],
         context=deps,
         max_turns=MAX_TURNS,
         run_config=_run_config(),
+        error_handlers={"max_turns": _out_of_turns},
     )
     return _settle(result)
 
 
-def resume_run(state: RunState, deps: AgentDeps) -> RunOutcome:
-    """Resume a paused run after its pending approval was approved or rejected."""
+def resume_run(paused: PausedRun, approved: bool, deps: AgentDeps) -> RunOutcome:
+    """Resume a paused run with the user's decision on its pending command."""
+    if approved:
+        paused.state.approve(paused.item)
+    else:
+        paused.state.reject(
+            paused.item,
+            rejection_message="The user denied running this command.",
+        )
+    # The paused state carries the run's turn count and MAX_TURNS with it.
     result = Runner.run_sync(
         agent,
-        state,
+        paused.state,
         context=deps,
         run_config=_run_config(),
+        error_handlers={"max_turns": _out_of_turns},
     )
     return _settle(result)
-
-
-def run_turn(
-    *,
-    client: WebClient,
-    session: CodeChannelSession,
-    text: str,
-    user_id: str,
-) -> None:
-    """Run the agent on a new message in a code channel and post the outcome.
-
-    Mentions, plain messages, and slash commands all funnel through here, so
-    every turn sets the session status, runs the agent, and posts the same way.
-    """
-    with session.turn_lock:
-        # A new message from the user restarts a session they stopped.
-        session.stopped = False
-        client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="processing",
-        )
-        deps = AgentDeps(client=client, session=session, user_id=user_id)
-        input_items = session.history + [{"role": "user", "content": text}]
-        outcome = start_run(input_items, deps)
-        deliver_outcome(outcome=outcome, deps=deps)
-
-
-def resume_turn(*, pending: PendingApproval) -> None:
-    """Resume a run paused on a command approval and post the outcome."""
-    session = pending.deps.session
-    with session.turn_lock:
-        pending.deps.client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="processing",
-        )
-        outcome = resume_run(pending.state, pending.deps)
-        deliver_outcome(outcome=outcome, deps=pending.deps)
-
-
-def deliver_outcome(*, outcome: RunOutcome, deps: AgentDeps) -> None:
-    """Post an agent run's outcome to the code channel.
-
-    If the run paused for approval, park the state and post Approve/Deny
-    buttons. Otherwise post the final message top-level (the code channel
-    convention) and mark the session active again.
-    """
-    client = deps.client
-    session = deps.session
-
-    if session.archived:
-        session_store.discard(session.channel_id)
-        return
-    # Persist conversation history so the next turn resumes with context.
-    session.history = outcome.history
-    session_store.put(session)
-    # After the stop button, post nothing. The stop handler already confirmed
-    # the stop and moved the session out of processing.
-    if session.stopped:
-        return
-
-    if outcome.needs_approval:
-        # The SDK gives the tool call's arguments as a JSON string.
-        arguments = json.loads(outcome.pending_item.arguments or "{}")
-        command = arguments.get("command", "")
-        # The agent can't continue until someone decides, so the session is suspended.
-        client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="suspended",
-        )
-        # The button value carries only the decision. The channel and this
-        # message's ts identify which paused run to resume.
-        posted = client.chat_postMessage(
-            channel=session.channel_id,
-            text="The agent needs approval to run a command.",
-            blocks=[
-                SectionBlock(
-                    text=MarkdownTextObject(
-                        text=(
-                            ":lock: *The agent wants to run a command that needs your approval:*\n"
-                            f"```{command}```"
-                        ),
-                    ),
-                ),
-                ActionsBlock(
-                    elements=[
-                        ButtonElement(
-                            text="Approve",
-                            style="primary",
-                            action_id="approve_command",
-                            value="approve",
-                        ),
-                        ButtonElement(
-                            text="Deny",
-                            style="danger",
-                            action_id="deny_command",
-                            value="deny",
-                        ),
-                    ],
-                ),
-            ],
-        )
-        pending_store.put(
-            session.channel_id,
-            PendingApproval(
-                state=outcome.pending_state,
-                approval_item=outcome.pending_item,
-                deps=deps,
-                command=command,
-                message_ts=posted["ts"],
-            ),
-        )
-        return
-
-    text = outcome.final_output or "(the agent finished without a message)"
-    # The model writes standard markdown, not Slack mrkdwn.
-    client.chat_postMessage(channel=session.channel_id, markdown_text=text)
-    client.agents_sessions_setStatus(
-        channel_id=session.channel_id,
-        status="active",
-    )

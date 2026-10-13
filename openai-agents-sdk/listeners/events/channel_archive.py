@@ -1,7 +1,6 @@
 from slack_bolt import BoltContext
 
-from agent import session_store
-from agent.approvals import pending_store
+from agent import end_session
 
 
 def handle_channel_archive(context: BoltContext, event: dict):
@@ -10,6 +9,4 @@ def handle_channel_archive(context: BoltContext, event: dict):
     When the agent archives the channel itself, `archive_channel` already ends
     the session and Bolt skips the app's own event.
     """
-    channel_id = event.get("channel") or context.channel_id
-    pending_store.discard(channel_id)
-    session_store.discard(channel_id)
+    end_session(event.get("channel") or context.channel_id)

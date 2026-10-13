@@ -3,11 +3,12 @@ from agents.run_context import RunContextWrapper
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 PLAN_VIEW_KEY = "plan"
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def write_plan(wrapper: RunContextWrapper[AgentDeps], markdown: str) -> str:
     """Write the task plan to the code channel's Plan tab.
 

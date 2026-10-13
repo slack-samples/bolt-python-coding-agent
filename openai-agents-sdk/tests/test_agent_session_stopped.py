@@ -1,15 +1,13 @@
-import logging
 from unittest.mock import Mock, patch
 
 from slack_bolt import BoltContext
 from slack_sdk import WebClient
 
-from agent import CodeChannelSession, RunOutcome, session_store
+from agent import CodeChannelSession, session_store
+from agent.agent import RunOutcome
 from agent.approvals import PendingApproval, pending_store
 from listeners.events.agent_session_stopped import handle_agent_session_stopped
 from listeners.events.message import handle_message
-
-test_logger = logging.getLogger(__name__)
 
 
 class TestAgentSessionStopped:
@@ -31,7 +29,6 @@ class TestAgentSessionStopped:
             client=self.client,
             context=self.context,
             event={"channel": "C_CODE", "streaming_message_ts": []},
-            logger=test_logger,
         )
 
     def test_stop_confirms_and_leaves_processing(self):
@@ -49,8 +46,7 @@ class TestAgentSessionStopped:
         pending_store.put(
             "C_CODE",
             PendingApproval(
-                state=Mock(),
-                approval_item=Mock(),
+                paused=Mock(),
                 deps=Mock(),
                 command="rm -rf build",
                 message_ts="9.1",
@@ -66,16 +62,15 @@ class TestAgentSessionStopped:
         assert "rm -rf build" in update["text"]
 
     def test_stopped_turn_posts_nothing_more(self):
-        def stop_mid_run(_input, _deps):
+        def stop_mid_run(_history, _text, _deps):
             self.stop()
             return RunOutcome(final_output="Done.", history=[])
 
-        with patch("agent.agent.start_run", side_effect=stop_mid_run):
+        with patch("agent.turns.start_run", side_effect=stop_mid_run):
             handle_message(
                 client=self.client,
                 context=self.context,
                 event={"ts": "4.4", "text": "keep going"},
-                logger=test_logger,
             )
 
         # Only the stop confirmation is posted, not the turn's "Done.".

@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 
 class Command(BaseModel):
@@ -18,7 +19,7 @@ class Command(BaseModel):
     )
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def set_commands(
     wrapper: RunContextWrapper[AgentDeps],
     commands: list[Command],

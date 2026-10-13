@@ -22,10 +22,12 @@ class CodeChannelSession:
     workdir: str | None = None
     repo_url: str | None = None
     base_branch: str | None = None
+    # The commit that was cloned, which the published diff compares against.
+    base_commit: str | None = None
     plan_canvas_id: str | None = None
     history: list = field(default_factory=list)
-    # Set by the native stop button. Checked before posting and between tool
-    # calls so a stopped session goes quiet; cleared when the user starts a new turn.
+    # Set by the native stop button. Checked before posting and before every
+    # tool call so a stopped session goes quiet; cleared when the user starts a new turn.
     stopped: bool = False
     # Set once the agent archives the channel; nothing more is posted after that.
     archived: bool = False

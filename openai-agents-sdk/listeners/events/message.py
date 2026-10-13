@@ -1,5 +1,3 @@
-from logging import Logger
-
 from slack_bolt import BoltContext
 from slack_sdk import WebClient
 
@@ -10,7 +8,6 @@ def handle_message(
     client: WebClient,
     context: BoltContext,
     event: dict,
-    logger: Logger,
 ):
     """Handle a message inside a code channel as a turn — no @mention needed.
 
@@ -32,15 +29,9 @@ def handle_message(
     if session is None:
         return
 
-    try:
-        run_turn(
-            client=client,
-            session=session,
-            text=text,
-            user_id=context.user_id,
-        )
-    except Exception as e:
-        logger.exception("Failed to handle code channel message")
-        client.chat_postMessage(
-            channel=channel_id, text=f":warning: Something went wrong ({e})."
-        )
+    run_turn(
+        client=client,
+        session=session,
+        text=text,
+        user_id=context.user_id,
+    )

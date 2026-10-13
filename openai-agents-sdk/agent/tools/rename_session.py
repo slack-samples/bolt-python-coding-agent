@@ -3,9 +3,10 @@ from agents.run_context import RunContextWrapper
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def rename_session(wrapper: RunContextWrapper[AgentDeps], title: str) -> str:
     """Rename the code channel and its session title.
 

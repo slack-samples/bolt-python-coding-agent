@@ -3,9 +3,10 @@ from agents.run_context import RunContextWrapper
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def list_views(wrapper: RunContextWrapper[AgentDeps]) -> str:
     """List the view tabs currently attached to the code channel.
 

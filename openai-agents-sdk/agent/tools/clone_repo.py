@@ -5,12 +5,17 @@ from agents import function_tool
 from agents.run_context import RunContextWrapper
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 # Cap the clone so an unreachable or huge repository can't wedge the session.
 CLONE_TIMEOUT_SECONDS = 120
 
+# Remote URL forms the agent may clone. Local paths and `file://` would copy
+# files off this machine, and other transports can run commands.
+CLONEABLE_URL_PREFIXES = ("git@", "https://", "ssh://")
 
-@function_tool
+
+@function_tool(tool_input_guardrails=[session_stopped])
 def clone_repo(wrapper: RunContextWrapper[AgentDeps], repo_url: str) -> str:
     """Clone a git repository into a fresh temp directory for this session.
 
@@ -19,13 +24,32 @@ def clone_repo(wrapper: RunContextWrapper[AgentDeps], repo_url: str) -> str:
     published to the code channel.
 
     Args:
-        repo_url: A git-cloneable URL (https or ssh) for the repository to work on.
+        repo_url: A remote git URL for the repository to work on, starting with `https://`, `ssh://`, or `git@`.
     """
+    if not repo_url.startswith(CLONEABLE_URL_PREFIXES):
+        return (
+            f"Can't clone {repo_url!r}. Use a remote URL that starts with "
+            "`https://`, `ssh://`, or `git@`."
+        )
+
     session = wrapper.context.session
     workdir = mkdtemp(prefix="coding-agent-")
     try:
+        # The `--` keeps a URL from being read as an option like `--upload-pack`.
+        # Symlinks check out as plain files, so a link in the repo can't point a
+        # read-only command at a file outside the clone.
         clone = subprocess.run(
-            ["git", "clone", "--depth", "50", repo_url, workdir],
+            [
+                "git",
+                "clone",
+                "--config",
+                "core.symlinks=false",
+                "--depth",
+                "50",
+                "--",
+                repo_url,
+                workdir,
+            ],
             capture_output=True,
             text=True,
             timeout=CLONE_TIMEOUT_SECONDS,
@@ -43,9 +67,17 @@ def clone_repo(wrapper: RunContextWrapper[AgentDeps], repo_url: str) -> str:
         text=True,
         check=False,
     )
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     session.workdir = workdir
     session.repo_url = repo_url
     session.base_branch = head.stdout.strip()
+    session.base_commit = commit.stdout.strip()
     return (
         f"Cloned {repo_url} (default branch `{session.base_branch}`) into the working "
         "directory. Create a branch with `git checkout -b agent/<topic>` before editing."

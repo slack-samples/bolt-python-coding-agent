@@ -23,8 +23,7 @@ class TestChannelArchive:
         pending_store.put(
             "C_CODE",
             PendingApproval(
-                state=Mock(),
-                approval_item=Mock(),
+                paused=Mock(),
                 deps=Mock(),
                 command="rm -rf build",
                 message_ts="9.1",

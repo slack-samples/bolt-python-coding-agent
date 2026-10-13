@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from slack_sdk.errors import SlackApiError
 
 from agent.deps import AgentDeps
+from agent.guardrails import session_stopped
 
 
 class ContextBarItem(BaseModel):
@@ -33,7 +34,7 @@ class ContextBarItem(BaseModel):
     url: str | None = Field(description="Makes the item a link to this URL.")
 
 
-@function_tool
+@function_tool(tool_input_guardrails=[session_stopped])
 def set_context_bar(
     wrapper: RunContextWrapper[AgentDeps],
     items: list[ContextBarItem],

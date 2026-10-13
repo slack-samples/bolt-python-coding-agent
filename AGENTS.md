@@ -42,7 +42,18 @@ Three layers: **app.py** -> **listeners/** -> **agent/**.
 
 - **`app.py`** starts Bolt in Socket Mode and calls `register_listeners(app)`. **`app_oauth.py`** is the alternative entry point for OAuth over HTTP.
 - **`listeners/`** holds Bolt handlers only, grouped by Slack feature (`actions/`, `commands/`, `events/`). Each sub-package has a `register(app)` function.
-- **`agent/`** holds everything else: the agents and their prompts, one file per tool under `agent/tools/`, the session store, and command approvals.
+- **`agent/`** holds everything else: the agents and their prompts, one file per tool under `agent/tools/`, the turn handling, the session store, and command approvals.
+
+**The seam between `listeners/` and `agent/`.** Listeners import only from the `agent` package, never from the agent framework, so `listeners/` is the same in every implementation. Each implementation's `agent/__init__.py` provides:
+
+- `answer_request(text, deps)` — reply to a mention outside a code channel, or call `create_code_channel`.
+- `run_turn(client, session, text, user_id)` — run a message or slash command in a code channel as a turn.
+- `resume_turn(client, channel_id, message_ts, approved)` — continue the run paused on that approval message, or mark the message expired.
+- `stop_turn(client, channel_id)` — handle the native stop button.
+- `end_session(channel_id)` — forget an archived code channel.
+- `session_store`, `CodeChannelSession`, `RequestDeps` — the session and request state listeners look up.
+
+Inside `agent/`, the framework is confined to `agent/agent.py` and the tools. `agent/turns.py` posts outcomes, approvals, and stops, and calls only `start_run(history, text, deps)` and `resume_run(paused, approved, deps)`, which return a `RunOutcome`. The paused run is a handle `turns.py` passes back without looking inside. `command_needs_approval(command)` in `agent/approvals.py` is plain Python, so copy it unchanged and wrap it in the framework's own approval hook.
 
 The flow: a mention outside a code channel runs a small routing agent that either replies in the thread or calls `create_code_channel`. Slack seeds the new channel with the request, and that mention starts the coding agent's first turn there. Every later message, slash command, and approval in the channel runs a turn of the same session.
 
