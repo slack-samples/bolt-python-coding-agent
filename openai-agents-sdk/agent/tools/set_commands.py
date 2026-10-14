@@ -20,7 +20,7 @@ class Command(BaseModel):
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def set_commands(
+async def set_commands(
     wrapper: RunContextWrapper[AgentDeps],
     commands: list[Command],
 ) -> str:
@@ -37,7 +37,7 @@ def set_commands(
     """
     deps = wrapper.context
     try:
-        response = deps.client.agents_conversations_setCommands(
+        response = await deps.client.agents_conversations_setCommands(
             channel_id=deps.channel_id,
             commands=[command.model_dump(exclude_none=True) for command in commands],
         )

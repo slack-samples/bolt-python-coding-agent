@@ -7,7 +7,7 @@ from agent.guardrails import session_stopped
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def list_views(wrapper: RunContextWrapper[AgentDeps]) -> str:
+async def list_views(wrapper: RunContextWrapper[AgentDeps]) -> str:
     """List the view tabs currently attached to the code channel.
 
     Use it before publishing a new view, since a channel holds at most 5, or to
@@ -15,7 +15,7 @@ def list_views(wrapper: RunContextWrapper[AgentDeps]) -> str:
     """
     deps = wrapper.context
     try:
-        response = deps.client.agents_conversations_listViews(
+        response = await deps.client.agents_conversations_listViews(
             channel_id=deps.channel_id,
         )
     except SlackApiError as e:

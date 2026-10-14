@@ -9,7 +9,7 @@ PLAN_VIEW_KEY = "plan"
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def write_plan(wrapper: RunContextWrapper[AgentDeps], markdown: str) -> str:
+async def write_plan(wrapper: RunContextWrapper[AgentDeps], markdown: str) -> str:
     """Write the task plan to the code channel's Plan tab.
 
     The plan is a canvas everyone in the channel can read and comment on, but
@@ -23,19 +23,19 @@ def write_plan(wrapper: RunContextWrapper[AgentDeps], markdown: str) -> str:
     session = deps.session
     try:
         if session.plan_canvas_id:
-            response = deps.client.agents_conversations_setCanvasContent(
+            response = await deps.client.agents_conversations_setCanvasContent(
                 channel=deps.channel_id,
                 canvas_id=session.plan_canvas_id,
                 content=markdown,
             )
             return f"Updated the plan ({response.get('sections_changed_count', 0)} sections changed)."
 
-        created = deps.client.canvases_create(
+        created = await deps.client.canvases_create(
             title="Plan",
             document_content={"type": "markdown", "markdown": markdown},
         )
         # Comment access keeps the agent the sole author while users leave feedback.
-        deps.client.agents_conversations_setView(
+        await deps.client.agents_conversations_setView(
             channel_id=deps.channel_id,
             type="canvas",
             view_key=PLAN_VIEW_KEY,

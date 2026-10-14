@@ -13,9 +13,9 @@ A sample Slack **coding agent** built with [Bolt for Python](https://docs.slack.
 
 ## What it can do
 
-* **Channel @mentions** — Mention the agent with a task. Quick questions get an answer in the thread; work that takes more than one message gets a code channel linked back to your message.
+* **Channel @mentions and direct messages** — Mention the agent with a task, or message it directly. Quick questions get an answer in place; work that takes more than one message gets a code channel linked back to your message, along with the conversation it came from.
 * **Code channels** — Keep chatting in the channel without an @mention. The agent writes its plan to a Plan tab you can comment on, publishes its changes to the code tab, and pins the repo, branch, and CI status to the context bar.
-* **Command approvals** — Read-only commands run right away. Anything else posts Approve and Deny buttons and waits for your decision.
+* **Command approvals** — File edits, read-only commands, and local git changes run right away. Anything else, like running tests, posts Approve and Deny buttons and waits for your decision.
 * **Slash commands** — The agent registers commands like `/run-tests` for each channel and decides what each one does.
 * **Wrap up** — When you say the work is done, the agent posts a summary back to your original message and archives the channel.
 * **App Home** — The Home tab explains how to start a task.

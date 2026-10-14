@@ -7,7 +7,7 @@ from agent.guardrails import session_stopped
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def read_plan(wrapper: RunContextWrapper[AgentDeps]) -> str:
+async def read_plan(wrapper: RunContextWrapper[AgentDeps]) -> str:
     """Read the Plan tab and any open comments people left on it.
 
     Call this at the start of each turn once a plan exists, and fold the
@@ -19,7 +19,7 @@ def read_plan(wrapper: RunContextWrapper[AgentDeps]) -> str:
         return "No plan yet — call write_plan to create one."
 
     try:
-        response = deps.client.agents_conversations_getCanvas(
+        response = await deps.client.agents_conversations_getCanvas(
             channel=deps.channel_id,
             canvas_id=canvas_id,
             include_resolved=False,

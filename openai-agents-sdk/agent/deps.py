@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from slack_sdk import WebClient
+from slack_sdk.web.async_client import AsyncWebClient
 
 from .store import CodeChannelSession
 
@@ -14,7 +14,7 @@ class AgentDeps:
     methods).
     """
 
-    client: WebClient
+    client: AsyncWebClient
     session: CodeChannelSession
     user_id: str
 
@@ -25,15 +25,16 @@ class AgentDeps:
 
 @dataclass
 class RequestDeps:
-    """Dependencies passed to the agent answering a mention outside a code channel.
+    """Dependencies passed to the agent answering a request outside a code channel.
 
     The agent either replies in place or calls `create_code_channel`, which sets
     `code_channel_id` so the listener knows the work moved there.
     """
 
-    client: WebClient
+    client: AsyncWebClient
     user_id: str
     channel_id: str
     message_ts: str
-    thread_ts: str
+    # The thread to reply in, or None to reply top-level, as in a direct message.
+    thread_ts: str | None
     code_channel_id: str | None = None

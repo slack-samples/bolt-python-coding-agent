@@ -5,7 +5,7 @@ run this against trusted, throwaway repositories in the session temp directory.
 See the README security section.
 """
 
-import subprocess
+import asyncio
 from logging import getLogger
 from pathlib import Path
 
@@ -15,6 +15,7 @@ from agents.run_context import RunContextWrapper
 from agent.approvals import command_needs_approval
 from agent.deps import AgentDeps
 from agent.guardrails import session_stopped
+from agent.workspace import clip, run_shell
 
 logger = getLogger(__name__)
 
@@ -38,13 +39,14 @@ async def needs_approval(_ctx, arguments: dict, _call_id: str) -> bool:
     needs_approval=needs_approval,
     tool_input_guardrails=[session_stopped],
 )
-def run_command(wrapper: RunContextWrapper[AgentDeps], command: str) -> str:
+async def run_command(wrapper: RunContextWrapper[AgentDeps], command: str) -> str:
     """Run a shell command in the session's working directory and return its output.
 
-    Use it to inspect, build, test, and edit the cloned repository (grep, cat,
-    sed, pytest, git, and so on). Clone a repo with `clone_repo` first. Read-only
-    commands run immediately; anything else, including tests and builds, asks the
-    user to approve it in Slack before running.
+    Use it to search, build, test, and run git in the cloned repository. Use
+    `read_file`, `write_file`, and `edit_file` for files instead of `cat`, `sed`,
+    or redirects. Read-only commands and local git changes like `git add`,
+    `git commit`, and `git switch -c` run immediately; anything else, including
+    tests and builds, asks the user to approve it in Slack before running.
 
     Args:
         command: The shell command to run, executed with the cloned repo as cwd.
@@ -54,23 +56,17 @@ def run_command(wrapper: RunContextWrapper[AgentDeps], command: str) -> str:
         return "No working directory yet — call clone_repo first."
 
     try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            cwd=session.workdir,
-            capture_output=True,
-            text=True,
-            timeout=COMMAND_TIMEOUT_SECONDS,
-            check=False,
+        result = await run_shell(
+            command, cwd=session.workdir, timeout=COMMAND_TIMEOUT_SECONDS
         )
-    except subprocess.TimeoutExpired:
+    except asyncio.TimeoutError:
         return f"Command timed out after {COMMAND_TIMEOUT_SECONDS}s: {command}"
 
-    out = (result.stdout or "").strip()
-    err = (result.stderr or "").strip()
+    out = result.stdout.strip()
+    err = result.stderr.strip()
     parts = [f"exit={result.returncode}"]
     if out:
-        parts.append(f"stdout:\n{out[:4000]}")
+        parts.append(f"stdout:\n{clip(out, 4000)}")
     if err:
-        parts.append(f"stderr:\n{err[:2000]}")
+        parts.append(f"stderr:\n{clip(err, 2000)}")
     return "\n".join(parts)

@@ -1,9 +1,9 @@
-from slack_bolt import BoltContext
+from slack_bolt.context.async_context import AsyncBoltContext
 
 from agent import end_session
 
 
-def handle_channel_archive(context: BoltContext, event: dict):
+async def handle_channel_archive(context: AsyncBoltContext, event: dict):
     """Forget a code channel someone archived, and delete its working directory.
 
     When the agent archives the channel itself, `archive_channel` already ends

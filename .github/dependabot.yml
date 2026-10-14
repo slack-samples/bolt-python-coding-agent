@@ -6,6 +6,10 @@ updates:
       - "/openai-agents-sdk"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 7
+      exclude:
+        - "slack-*"
     labels:
       - "pip"
       - "dependencies"
@@ -13,3 +17,5 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    cooldown:
+      default-days: 7

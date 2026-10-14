@@ -1,5 +1,5 @@
 import json
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from agents import RunResult, RunState, ToolApprovalItem
 
@@ -51,21 +51,22 @@ class TestSettle:
 
 
 class TestResumeRun:
-    def resume(self, approved: bool) -> PausedRun:
+    async def resume(self, approved: bool) -> PausedRun:
         paused = PausedRun(state=Mock(spec=RunState), item=Mock(spec=ToolApprovalItem))
-        paused.state.get_interruptions.return_value = []
-        with patch("agent.agent.Runner.run_sync", return_value=run_result([])):
-            resume_run(paused, approved, Mock())
+        with patch(
+            "agent.agent.Runner.run", new=AsyncMock(return_value=run_result([]))
+        ):
+            await resume_run(paused, approved, Mock())
         return paused
 
-    def test_approving_approves_the_pending_item(self):
-        paused = self.resume(approved=True)
+    async def test_approving_approves_the_pending_item(self):
+        paused = await self.resume(approved=True)
 
         paused.state.approve.assert_called_once_with(paused.item)
         paused.state.reject.assert_not_called()
 
-    def test_denying_rejects_the_pending_item(self):
-        paused = self.resume(approved=False)
+    async def test_denying_rejects_the_pending_item(self):
+        paused = await self.resume(approved=False)
 
         paused.state.reject.assert_called_once()
         assert paused.state.reject.call_args.args == (paused.item,)

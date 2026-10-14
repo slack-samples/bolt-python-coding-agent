@@ -4,7 +4,8 @@
 loop, `command_needs_approval` decides which commands pause for a decision:
 
 - A command that only reads, such as `ls`, `grep`, or `git diff`, runs
-  immediately.
+  immediately. So do local git changes that git can undo, such as `git add`,
+  `git commit`, and `git switch -c`.
 - Anything else pauses the agent run. The listener posts Approve / Deny buttons
   in the code channel, parks the paused run in `pending_store`, and resumes it
   once a human decides.
@@ -13,12 +14,12 @@ Running the repository's own code, such as its tests, build, or package
 installs, always asks, since a cloned repository is untrusted input. So does any
 command with shell syntax like `&&`, `|`, `;`, `>`, or `$(...)`, which could
 chain a second command behind a read-only one, and any path that leaves the
-clone, like `/etc`, `~/.ssh`, or `../x`. Only ever run this against
-trusted, throwaway repositories. See the README security section.
+clone, like `/etc`, `~/.ssh`, or `../x`. File edits don't go through here: the
+`write_file` and `edit_file` tools only write inside the clone. Only ever run
+this against trusted, throwaway repositories. See the README security section.
 """
 
 import shlex
-import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,25 +42,32 @@ READ_ONLY_COMMANDS: frozenset[str] = frozenset(
     }
 )
 
-# git subcommands that only read. Any other subcommand, or an option before the
-# subcommand like `git -c`, asks first.
-READ_ONLY_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
+# git subcommands that only read, or only change the local clone in ways git
+# can undo. Any other subcommand, or an option before the subcommand like
+# `git -c`, asks first.
+SAFE_GIT_SUBCOMMANDS: frozenset[str] = frozenset(
     {
+        "add",
         "blame",
+        "branch",
+        "commit",
         "diff",
         "log",
         "ls-files",
         "rev-parse",
         "show",
         "status",
+        "switch",
     }
 )
 
-# Options that make a read-only program run or write something, matched as a
-# prefix so `-execdir` and `--pre=cmd` count too.
+# Options that make a safe program run something, write outside its own
+# files, or throw away work, matched as a prefix so `-execdir` and `--pre=cmd`
+# count too. For git that includes the forced `git branch -C`, `-D`, and `-M`,
+# which also catches the harmless `git diff -C` and `-M`, to stay simple.
 UNSAFE_OPTIONS: dict[str, tuple[str, ...]] = {
     "find": ("-delete", "-exec", "-fls", "-fprint", "-ok"),
-    "git": ("--output",),
+    "git": ("--discard-changes", "--force", "--output", "-C", "-D", "-M", "-f"),
     "rg": ("--pre",),
     "tree": ("-o",),
 }
@@ -93,7 +101,7 @@ def command_needs_approval(command: str) -> bool:
 
     if program not in READ_ONLY_COMMANDS:
         return True
-    if program == "git" and (not args or args[0] not in READ_ONLY_GIT_SUBCOMMANDS):
+    if program == "git" and (not args or args[0] not in SAFE_GIT_SUBCOMMANDS):
         return True
     if any(_reads_outside_the_clone(arg) for arg in args):
         return True
@@ -105,7 +113,7 @@ def command_needs_approval(command: str) -> bool:
 class PendingApproval:
     """A paused agent run and the approval message awaiting a human decision."""
 
-    # The framework's handle on the paused run, passed back to `resume_run`.
+    # The handle on the paused run, passed back to `resume_run`.
     paused: Any
     deps: AgentDeps
     command: str
@@ -113,7 +121,7 @@ class PendingApproval:
 
 
 class PendingApprovalStore:
-    """Thread-safe store of paused runs, one per code channel.
+    """Paused runs, one per code channel.
 
     A newer paused run in the same channel replaces the older one, so a click
     only resolves the run whose buttons it came from. State is held in-process
@@ -123,24 +131,20 @@ class PendingApprovalStore:
 
     def __init__(self) -> None:
         self._store: dict[str, PendingApproval] = {}
-        self._lock = threading.Lock()
 
     def put(self, channel_id: str, pending: PendingApproval) -> None:
-        with self._lock:
-            self._store[channel_id] = pending
+        self._store[channel_id] = pending
 
     def pop(self, channel_id: str, message_ts: str) -> PendingApproval | None:
         """Take the paused run whose approval message is `message_ts`, if any."""
-        with self._lock:
-            pending = self._store.get(channel_id)
-            if pending is None or pending.message_ts != message_ts:
-                return None
-            return self._store.pop(channel_id)
+        pending = self._store.get(channel_id)
+        if pending is None or pending.message_ts != message_ts:
+            return None
+        return self._store.pop(channel_id)
 
     def discard(self, channel_id: str) -> PendingApproval | None:
         """Drop the channel's paused run, whatever its message, and return it."""
-        with self._lock:
-            return self._store.pop(channel_id, None)
+        return self._store.pop(channel_id, None)
 
 
 pending_store = PendingApprovalStore()

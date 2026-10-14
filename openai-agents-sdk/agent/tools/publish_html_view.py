@@ -7,7 +7,7 @@ from agent.guardrails import session_stopped
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def publish_html_view(
+async def publish_html_view(
     wrapper: RunContextWrapper[AgentDeps],
     view_key: str,
     name: str,
@@ -26,7 +26,7 @@ def publish_html_view(
     """
     deps = wrapper.context
     try:
-        response = deps.client.agents_conversations_setView(
+        response = await deps.client.agents_conversations_setView(
             channel_id=deps.channel_id,
             type="html",
             view_key=view_key,

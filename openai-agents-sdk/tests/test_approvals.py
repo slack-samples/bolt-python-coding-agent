@@ -10,10 +10,27 @@ class TestCommandNeedsApproval:
         assert command_needs_approval("git status") is False
         assert command_needs_approval("git diff HEAD~1") is False
 
-    def test_git_other_subcommands_need_approval(self):
-        assert command_needs_approval("git push origin main") is True
-        assert command_needs_approval("git reset --hard") is True
-        assert command_needs_approval("git checkout -b agent/fix") is True
+    def test_local_git_changes_run_freely(self):
+        for cmd in [
+            "git switch -c agent/fix",
+            "git add -A",
+            "git commit -m 'Fix the login test'",
+            "git branch",
+        ]:
+            assert command_needs_approval(cmd) is False, cmd
+
+    def test_git_that_publishes_or_discards_work_needs_approval(self):
+        for cmd in [
+            "git push origin main",
+            "git reset --hard",
+            "git checkout -- app.py",
+            "git switch --discard-changes main",
+            "git switch -f main",
+            "git branch -D agent/old",
+            "git branch -M main",
+            "git clean -fd",
+        ]:
+            assert command_needs_approval(cmd) is True, cmd
 
     def test_git_options_before_the_subcommand_need_approval(self):
         assert command_needs_approval("git -c alias.x='!id' x") is True

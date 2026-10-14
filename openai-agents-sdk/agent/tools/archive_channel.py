@@ -7,7 +7,7 @@ from agent.guardrails import session_stopped
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def archive_channel(wrapper: RunContextWrapper[AgentDeps], summary: str) -> str:
+async def archive_channel(wrapper: RunContextWrapper[AgentDeps], summary: str) -> str:
     """Post a final summary and archive the code channel.
 
     Only call this when the user says the work is done or asks to wrap up. The
@@ -19,17 +19,17 @@ def archive_channel(wrapper: RunContextWrapper[AgentDeps], summary: str) -> str:
     """
     deps = wrapper.context
     try:
-        posted = deps.client.chat_postMessage(
+        posted = await deps.client.chat_postMessage(
             channel=deps.channel_id,
             markdown_text=summary,
         )
         # Close the session while the channel can still be written to.
-        deps.client.agents_sessions_setStatus(
+        await deps.client.agents_sessions_setStatus(
             channel_id=deps.channel_id,
             status="closed",
         )
         try:
-            deps.client.agents_conversations_archive(
+            await deps.client.agents_conversations_archive(
                 channel_id=deps.channel_id,
                 summary_message_ts=posted["ts"],
             )
@@ -37,7 +37,7 @@ def archive_channel(wrapper: RunContextWrapper[AgentDeps], summary: str) -> str:
             # A channel started from Slack's own UI has no origin message to share back to.
             if e.response["error"] != "no_origin_link":
                 raise
-            deps.client.agents_conversations_archive(channel_id=deps.channel_id)
+            await deps.client.agents_conversations_archive(channel_id=deps.channel_id)
     except SlackApiError as e:
         return f"Could not archive the channel: {e.response['error']}"
 

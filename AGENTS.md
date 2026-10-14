@@ -40,21 +40,21 @@ CI runs ruff and pytest against each directory with a matrix in `.github/workflo
 
 Three layers: **app.py** -> **listeners/** -> **agent/**.
 
-- **`app.py`** starts Bolt in Socket Mode and calls `register_listeners(app)`. **`app_oauth.py`** is the alternative entry point for OAuth over HTTP.
+- **`app.py`** starts Bolt's `AsyncApp` in Socket Mode and calls `register_listeners(app)`. **`app_oauth.py`** is the alternative entry point for OAuth over HTTP. Everything is async, so a long turn never holds up the stop button, an approval click, or another channel.
 - **`listeners/`** holds Bolt handlers only, grouped by Slack feature (`actions/`, `commands/`, `events/`). Each sub-package has a `register(app)` function.
 - **`agent/`** holds everything else: the agents and their prompts, one file per tool under `agent/tools/`, the turn handling, the session store, and command approvals.
 
-**The seam between `listeners/` and `agent/`.** Listeners import only from the `agent` package, never from the agent framework, so `listeners/` is the same in every implementation. Each implementation's `agent/__init__.py` provides:
+The flow: a mention or direct message outside a code channel runs a small routing agent that either replies in place or calls `create_code_channel`. Slack seeds the new channel with the request, and that mention starts the coding agent's first turn there, along with the conversation the request came from. Every later message, slash command, and approval in the channel runs a turn of the same session. Messages sent while a turn runs wait and go into the next turn together.
 
-- `answer_request(text, deps)` — reply to a mention outside a code channel, or call `create_code_channel`.
-- `run_turn(client, session, text, user_id)` — run a message or slash command in a code channel as a turn.
-- `resume_turn(client, channel_id, message_ts, approved)` — continue the run paused on that approval message, or mark the message expired.
-- `stop_turn(client, channel_id)` — handle the native stop button.
-- `end_session(channel_id)` — forget an archived code channel.
-- `session_store`, `CodeChannelSession`, `RequestDeps` — the session and request state listeners look up.
+## Keeping implementations alike
 
-Inside `agent/`, the framework is confined to `agent/agent.py` and the tools. `agent/turns.py` posts outcomes, approvals, and stops, and calls only `start_run(history, text, deps)` and `resume_run(paused, approved, deps)`, which return a `RunOutcome`. The paused run is a handle `turns.py` passes back without looking inside. `command_needs_approval(command)` in `agent/approvals.py` is plain Python, so copy it unchanged and wrap it in the framework's own approval hook.
+Implementations share structure, not code, so these parts are kept the same by copying them and changing them everywhere at once:
 
-The flow: a mention outside a code channel runs a small routing agent that either replies in the thread or calls `create_code_channel`. Slack seeds the new channel with the request, and that mention starts the coding agent's first turn there. Every later message, slash command, and approval in the channel runs a turn of the same session.
+- **The seam between `listeners/` and `agent/`.** Listeners import only from the `agent` package, never from the agent framework, so `listeners/` is the same in every implementation. `agent/__init__.py` provides `answer_request`, `find_session`, `run_turn`, `resume_turn`, `stop_turn`, and `end_session`.
+- **Framework-free files.** `agent/turns.py`, `agent/context.py`, `agent/approvals.py`, `agent/store.py`, `agent/workspace.py`, and `agent/outcome.py` don't import the agent framework. The framework lives in `agent/agent.py` and `agent/tools/`. `turns.py` calls only `run_request(prompt, deps)`, `start_run(history, text, deps)`, and `resume_run(paused, approved, deps)`, which return the `RunOutcome` in `agent/outcome.py`. The paused run is a handle `turns.py` passes back without looking inside, so each framework's way of pausing fits behind it.
+- **Prompts.** `agent/prompts.py` is the same word for word in every implementation.
+- **Tools.** Every implementation offers the same tools with the same names, arguments, and descriptions, written with its framework's tool decorator. File tools stay inside the clone and can't write into `.git`.
+- **Command approvals.** `command_needs_approval(command)` is plain Python and the same in every implementation, wrapped in the framework's own approval hook. Read-only commands and local git changes run without asking. Anything that runs the repository's code, uses shell syntax, or reaches outside the clone asks first.
+- **Tests.** Test files and names mirror each other, and `tests/test_runs.py` drives real agent runs with a scripted model to cover pausing, resuming, stopping, and running out of turns.
 
 Refer to each implementation's README for its specifics.

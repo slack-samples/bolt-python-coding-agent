@@ -7,7 +7,7 @@ from agent.guardrails import session_stopped
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def remove_view(wrapper: RunContextWrapper[AgentDeps], view_id: str) -> str:
+async def remove_view(wrapper: RunContextWrapper[AgentDeps], view_id: str) -> str:
     """Remove a view tab from the code channel.
 
     Use it to clear out a view that's stale or no longer useful. Find the
@@ -18,7 +18,7 @@ def remove_view(wrapper: RunContextWrapper[AgentDeps], view_id: str) -> str:
     """
     deps = wrapper.context
     try:
-        deps.client.agents_conversations_removeView(
+        await deps.client.agents_conversations_removeView(
             channel_id=deps.channel_id,
             view_id=view_id,
         )

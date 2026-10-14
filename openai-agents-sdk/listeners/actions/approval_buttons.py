@@ -1,21 +1,22 @@
 """Approve / Deny handler for a command awaiting approval in a code channel."""
 
-from slack_bolt import Ack, BoltContext
-from slack_sdk import WebClient
+from slack_bolt.async_app import AsyncAck
+from slack_bolt.context.async_context import AsyncBoltContext
+from slack_sdk.web.async_client import AsyncWebClient
 
 from agent import resume_turn
 
 
-def handle_approval_buttons(
-    ack: Ack,
+async def handle_approval_buttons(
+    ack: AsyncAck,
     action: dict,
     body: dict,
-    context: BoltContext,
-    client: WebClient,
+    context: AsyncBoltContext,
+    client: AsyncWebClient,
 ):
     """Resume the paused run with the decision from whichever button was clicked."""
-    ack()
-    resume_turn(
+    await ack()
+    await resume_turn(
         client=client,
         channel_id=context.channel_id,
         message_ts=body["message"]["ts"],

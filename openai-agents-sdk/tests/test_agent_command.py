@@ -1,57 +1,42 @@
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, patch
 
-from slack_sdk import WebClient
-
-from agent import CodeChannelSession, session_store
-from agent.agent import RunOutcome
+from agent.outcome import RunOutcome
+from agent.store import CodeChannelSession, session_store
 from listeners.commands.agent_command import handle_agent_command
 
 
 class TestAgentCommand:
-    def setup_method(self):
-        self.client = Mock(WebClient)
-        self.ack = Mock()
-        self.respond = Mock()
+    async def run_command(self, client, **command):
+        ack, respond = AsyncMock(), AsyncMock()
+        await handle_agent_command(
+            ack=ack,
+            command={"user_id": "U123", "command": "/run-tests", **command},
+            client=client,
+            respond=respond,
+        )
+        return ack, respond
 
-    def teardown_method(self):
-        session_store.discard("C_CODE")
-
-    def test_command_in_a_code_channel_runs_a_turn(self):
+    async def test_command_in_a_code_channel_runs_a_turn(self, client):
         session_store.put(CodeChannelSession(channel_id="C_CODE"))
 
         with patch(
             "agent.turns.start_run",
             return_value=RunOutcome(final_output="Tests passed.", history=[]),
         ) as start_run:
-            handle_agent_command(
-                ack=self.ack,
-                command={
-                    "channel_id": "C_CODE",
-                    "user_id": "U123",
-                    "command": "/run-tests",
-                    "text": "unit",
-                },
-                client=self.client,
-                respond=self.respond,
+            ack, respond = await self.run_command(
+                client, channel_id="C_CODE", text="unit"
             )
 
-        self.ack.assert_called_once()
-        assert start_run.call_args.args[1] == "/run-tests unit"
-        self.respond.assert_not_called()
+        ack.assert_awaited_once()
+        assert start_run.call_args.args[1] == "<@U123>: /run-tests unit"
+        respond.assert_not_called()
 
-    def test_command_without_a_session_explains_itself(self):
+    async def test_command_without_a_session_explains_itself(self, client):
+        client.conversations_info.return_value = {"channel": {"properties": {}}}
+
         with patch("agent.turns.start_run") as start_run:
-            handle_agent_command(
-                ack=self.ack,
-                command={
-                    "channel_id": "C_OTHER",
-                    "user_id": "U123",
-                    "command": "/run-tests",
-                },
-                client=self.client,
-                respond=self.respond,
-            )
+            ack, respond = await self.run_command(client, channel_id="C_OTHER")
 
-        self.ack.assert_called_once()
+        ack.assert_awaited_once()
         start_run.assert_not_called()
-        assert "Mention me" in self.respond.call_args.args[0]
+        assert "Mention me" in respond.call_args.args[0]

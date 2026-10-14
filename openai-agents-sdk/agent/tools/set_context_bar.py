@@ -35,7 +35,7 @@ class ContextBarItem(BaseModel):
 
 
 @function_tool(tool_input_guardrails=[session_stopped])
-def set_context_bar(
+async def set_context_bar(
     wrapper: RunContextWrapper[AgentDeps],
     items: list[ContextBarItem],
 ) -> str:
@@ -50,7 +50,7 @@ def set_context_bar(
     """
     deps = wrapper.context
     try:
-        deps.client.agents_conversations_setProperties(
+        await deps.client.agents_conversations_setProperties(
             channel_id=deps.channel_id,
             code_channel={
                 "context_bar_items": [

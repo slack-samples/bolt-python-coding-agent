@@ -1,6 +1,8 @@
 name: Merge updates to dependencies
 on:
   pull_request:
+permissions:
+  contents: read
 jobs:
   dependabot:
     name: "@dependabot"
@@ -16,13 +18,15 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
       - name: Approve
-        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        # A 0.x minor version can break, so those wait for a review.
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || (steps.metadata.outputs.update-type == 'version-update:semver-minor' && !startsWith(steps.metadata.outputs.new-version, '0.'))
         run: gh pr review --approve "$PR_URL"
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
       - name: Automerge
-        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        # A 0.x minor version can break, so those wait for a review.
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || (steps.metadata.outputs.update-type == 'version-update:semver-minor' && !startsWith(steps.metadata.outputs.new-version, '0.'))
         run: gh pr merge --auto --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}

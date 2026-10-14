@@ -1,31 +1,28 @@
-from slack_bolt import Ack, Respond
-from slack_sdk import WebClient
+from slack_bolt.async_app import AsyncAck, AsyncRespond
+from slack_sdk.web.async_client import AsyncWebClient
 
-from agent import run_turn, session_store
+from agent import find_session, run_turn
 
 
-def handle_agent_command(
-    ack: Ack,
+async def handle_agent_command(
+    ack: AsyncAck,
     command: dict,
-    client: WebClient,
-    respond: Respond,
+    client: AsyncWebClient,
+    respond: AsyncRespond,
 ):
     """Handle a slash command the agent registered in a code channel.
 
     The command and its text become the next turn, like `/run-tests unit`, so the
     agent decides what each of its commands does.
     """
-    ack()
+    await ack()
 
-    session = session_store.get(command["channel_id"])
+    session = await find_session(client, command["channel_id"])
     if session is None:
-        respond("I don't have an active session here. Mention me to pick it back up.")
+        await respond("I don't have a session here. Mention me to start one.")
         return
 
     text = f"{command['command']} {command.get('text', '')}".strip()
-    run_turn(
-        client=client,
-        session=session,
-        text=text,
-        user_id=command["user_id"],
+    await run_turn(
+        client=client, session=session, text=text, user_id=command["user_id"]
     )

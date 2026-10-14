@@ -14,7 +14,20 @@
     },
     "agent_view": {
       "agent_description": "A coding agent that spins up a dedicated code channel to work on your task.",
-      "suggested_prompts": []
+      "suggested_prompts": [
+        {
+          "title": "Start a coding task",
+          "message": "Fix a bug in a repository for me. I'll share the repo URL and what's wrong."
+        },
+        {
+          "title": "Plan a change",
+          "message": "Help me plan a change to a repository before any code is written."
+        },
+        {
+          "title": "What can you do?",
+          "message": "What can you do, and how do code channels work?"
+        }
+      ]
     },
     "code_channels": {
       "enabled": true
