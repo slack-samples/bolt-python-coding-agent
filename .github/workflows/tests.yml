@@ -16,9 +16,6 @@ jobs:
       matrix:
         directory:
           - openai-agents-sdk
-        python-version:
-          - "3.10"
-          - "3.14"
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -30,7 +27,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
       - name: Install dependencies
         run: |
           pip install -U pip
