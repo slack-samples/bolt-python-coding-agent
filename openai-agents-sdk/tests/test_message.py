@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from agent.outcome import RunOutcome
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from listeners.events.message import handle_message
 from tests.conftest import code_channel_info
 

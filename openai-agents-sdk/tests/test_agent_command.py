@@ -1,7 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
 from agent.outcome import RunOutcome
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from listeners.commands.agent_command import handle_agent_command
 
 

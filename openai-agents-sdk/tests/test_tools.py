@@ -10,7 +10,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from agent.deps import AgentDeps, RequestDeps
 from agent.guardrails import session_stopped
-from agent.store import CodeChannelSession
+from agent.sessions import CodeChannelSession
 from agent.tools import (
     archive_channel,
     clone_repo,

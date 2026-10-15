@@ -6,9 +6,10 @@ from typing import Any
 class RunOutcome:
     """The result of a (possibly paused) agent run.
 
-    `agent/agent.py` returns this and `agent/turns.py` reads it, so turn handling
-    never touches the agent framework. Exactly one of `final_output` or `paused`
-    is set:
+    `start_run` and `resume_run` in `agent/agent.py` return this and
+    `agent/turns.py` reads it, so turn handling never touches the agent
+    framework. At most one of `final_output` or `paused` is set, and neither is
+    after the agent archives the channel:
 
     - `final_output` — the run completed; this is the text to post.
     - `paused` + `command` — the run paused on a command that needs approval.

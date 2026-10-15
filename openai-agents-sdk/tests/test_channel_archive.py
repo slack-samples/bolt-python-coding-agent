@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 from agent.approvals import PendingApproval, pending_store
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from listeners.events.channel_archive import handle_channel_archive
 
 

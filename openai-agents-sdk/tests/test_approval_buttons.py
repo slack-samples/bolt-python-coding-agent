@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from agent.approvals import pending_store
 from agent.outcome import RunOutcome
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from listeners.actions.approval_buttons import handle_approval_buttons
 from listeners.events.message import handle_message
 

@@ -16,7 +16,8 @@ logger = getLogger(__name__)
 async def run_command_needs_approval(_ctx, arguments: dict, _call_id: str) -> bool:
     """The `needs_approval` hook for `run_command`, checked with its arguments before it runs.
 
-    Returning True pauses the run with a ToolApprovalItem the listener handles.
+    Returning True pauses the run with a ToolApprovalItem, which `agent/turns.py`
+    posts as Approve / Deny buttons.
     """
     command = (arguments or {}).get("command", "")
     needs = command_needs_approval(command)

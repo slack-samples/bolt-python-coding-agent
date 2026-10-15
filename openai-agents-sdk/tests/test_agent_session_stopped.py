@@ -2,7 +2,7 @@ from unittest.mock import Mock, patch
 
 from agent.approvals import PendingApproval, pending_store
 from agent.outcome import RunOutcome
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from listeners.events.agent_session_stopped import handle_agent_session_stopped
 from listeners.events.message import handle_message
 

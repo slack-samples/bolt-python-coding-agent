@@ -6,19 +6,21 @@
 - A command that only reads, such as `ls`, `grep`, or `git diff`, runs
   immediately. So do local git changes that git can undo, such as `git add`,
   `git commit`, and `git switch -c`.
-- Anything else pauses the agent run. The listener posts Approve / Deny buttons
-  in the code channel, parks the paused run in `pending_store`, and resumes it
-  once a human decides.
+- Anything else pauses the agent run. `agent/turns.py` posts Approve / Deny
+  buttons in the code channel, parks the paused run in `pending_store`, and
+  resumes it once a human decides.
 
 Running the repository's own code, such as its tests, build, or package
 installs, always asks, since a cloned repository is untrusted input. So does any
 path that leaves the clone, like `/etc`, `C:\\Windows`, or `../x`. Commands run
 without a shell, and this splits a command into arguments the same way
 `run_command` does, so what's checked here is exactly what runs: `&&`, `|`, or
-`$(...)` can't chain a second command, they're only text. File edits don't go
-through here: the `write_file` and `edit_file` tools only write inside the
-clone. Only ever run this against trusted, throwaway repositories. See the
-README security section.
+`$(...)` can't chain a second command, they're only text. On Windows, `.cmd`
+and `.bat` programs like `npm` are the exception, since Windows runs them
+through `cmd.exe`, which does read that syntax. File edits don't go through
+here: the `write_file` and `edit_file` tools only write inside the clone. Only
+ever run this against trusted, throwaway repositories. See the README's Command
+approvals section.
 """
 
 import shlex

@@ -1,8 +1,9 @@
 """The OpenAI Agents SDK side of the coding agent.
 
-Everything that touches the SDK lives here and in `agent/tools/`. The turn
-handling in `agent/turns.py` calls only `run_request`, `start_run`, and
-`resume_run`, and reads the `RunOutcome` they return.
+Everything that touches the SDK lives here, in `agent/guardrails.py`, and in
+`agent/tools/`. The turn handling in `agent/turns.py` calls only `run_request`,
+which returns the reply text, and `start_run` and `resume_run`, which return a
+`RunOutcome`.
 """
 
 import json

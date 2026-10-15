@@ -11,7 +11,7 @@ async def list_views(wrapper: RunContextWrapper[AgentDeps]) -> str:
     """List the view tabs currently attached to the code channel.
 
     Use it before publishing a new view, since a channel holds at most 5, or to
-    find the `view_key` of a tab to remove.
+    find the `view_id` of a tab to remove.
     """
     deps = wrapper.context
     try:

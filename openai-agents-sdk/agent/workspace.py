@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Environment variables kept from the app's environment are everything except
-# the app's own tokens and anything that looks like a credential, so a command
-# from the repository can't read them.
+# the app's own tokens and anything that looks like a credential, so they aren't
+# passed to a command from the repository.
 SECRET_PREFIXES = ("OPENAI_", "SLACK_")
 SECRET_MARKERS = ("API_KEY", "CREDENTIAL", "PASSWORD", "PRIVATE_KEY", "SECRET", "TOKEN")
 
@@ -56,8 +56,9 @@ async def _communicate(process, timeout: float) -> Output:
 async def run(*args: str, cwd: str, timeout: float = 60) -> Output:
     """Run a program with its arguments in `cwd`, without a shell.
 
-    Without a shell, every platform runs a command the same way, and arguments
-    like `&&`, `|`, or `$(...)` reach the program as plain text. Raises
+    Without a shell, arguments like `&&`, `|`, or `$(...)` reach the program as
+    plain text. On Windows, `.cmd` and `.bat` programs like `npm` are the
+    exception, since Windows runs them through `cmd.exe`. Raises
     FileNotFoundError when the program isn't installed, and asyncio.TimeoutError
     past `timeout` seconds.
     """

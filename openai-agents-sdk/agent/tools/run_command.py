@@ -1,8 +1,9 @@
 """⚠️ SECURITY: `run_command` runs programs chosen by the language model on the
-machine running this app. Commands that do more than read require
-human approval in Slack before they run (see `agent/approvals.py`) — only ever
-run this against trusted, throwaway repositories in the session temp directory.
-See the README security section.
+machine running this app. Read-only commands and local git changes run right
+away, and anything else needs human approval in Slack first (see
+`agent/approvals.py`) — only ever run this against trusted, throwaway
+repositories in the session temp directory. See the README's Command approvals
+section.
 """
 
 import asyncio

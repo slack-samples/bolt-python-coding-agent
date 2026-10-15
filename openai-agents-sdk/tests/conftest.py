@@ -8,7 +8,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 
 from agent import turns
 from agent.approvals import pending_store
-from agent.store import session_store
+from agent.sessions import session_store
 
 # Tests never reach OpenAI, so there are no traces to send.
 set_tracing_disabled(True)

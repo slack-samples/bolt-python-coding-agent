@@ -2,8 +2,9 @@
 
 Listeners call these functions and never the agent framework directly. This file
 doesn't import the framework either. It calls `run_request`, `start_run`, and
-`resume_run` from `agent/agent.py` and reads the `RunOutcome` they return,
-passing `outcome.paused` back to `resume_run` without looking inside.
+`resume_run` from `agent/agent.py`: `run_request` returns the reply text, and the
+other two return a `RunOutcome`. It passes `outcome.paused` back to
+`resume_run` without looking inside.
 """
 
 import logging
@@ -24,7 +25,7 @@ from agent.approvals import PendingApproval, pending_store
 from agent.context import origin_context, recent_context, thread_context
 from agent.deps import AgentDeps, RequestDeps
 from agent.outcome import RunOutcome
-from agent.store import CodeChannelSession, session_store
+from agent.sessions import CodeChannelSession, session_store
 from agent.workspace import clip
 
 logger = logging.getLogger(__name__)

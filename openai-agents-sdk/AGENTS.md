@@ -12,7 +12,7 @@ Guidance for coding agents working in this directory. Refer to the root `../AGEN
 
 **Stopping** sets `session.stopped`. Every code channel tool lists the `session_stopped` tool input guardrail (`agent/guardrails.py`), which skips the call and tells the model to wrap up, and the turn posts nothing when it finishes.
 
-**Conversation history** comes from `result.to_input_list()` and is stored on the `CodeChannelSession` (`agent/store.py`), keyed by code channel. Follow-up turns pass `session.history + [{"role": "user", "content": text}]`.
+**Conversation history** comes from `result.to_input_list()` and is stored on the `CodeChannelSession` (`agent/sessions.py`), keyed by code channel. Follow-up turns pass `session.history + [{"role": "user", "content": text}]`.
 
 **Command approvals.** `run_command_needs_approval` in `agent/guardrails.py` wraps `command_needs_approval()` from `agent/approvals.py` in the SDK's `needs_approval` hook for `run_command`. A paused run is a `PausedRun` (the `RunState` and its `ToolApprovalItem`), parked in `pending_store` with the ts of its Approve/Deny message, so a click only resumes the run its buttons were posted for. A newer message in the channel retires a pending approval, so a late click can't resume an older run over it.
 

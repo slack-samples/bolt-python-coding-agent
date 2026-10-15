@@ -6,7 +6,7 @@ from unittest.mock import patch
 import agent.agent as agents_module
 from agent.agent import resume_run, run_request, start_run
 from agent.deps import AgentDeps, RequestDeps
-from agent.store import CodeChannelSession
+from agent.sessions import CodeChannelSession
 from tests.fake_model import FakeModel, call, say
 
 

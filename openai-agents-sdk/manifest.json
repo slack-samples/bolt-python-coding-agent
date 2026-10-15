@@ -30,7 +30,8 @@
       ]
     },
     "code_channels": {
-      "enabled": true
+      "enabled": true,
+      "slash_command_url": "https://ngrok-free.app/slack/events"
     }
   },
   "oauth_config": {

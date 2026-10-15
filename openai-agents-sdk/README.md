@@ -338,7 +338,7 @@ The `guardrails.py` file holds the SDK hooks that gate tool calls: the approval 
 
 The `deps.py` file defines the `AgentDeps` and `RequestDeps` dataclasses passed to the agents at runtime, providing access to the Slack client and the session or request.
 
-The `store.py` file keeps each code channel's session in memory: its working directory, plan canvas, conversation history, and messages waiting for the next turn.
+The `sessions.py` file keeps each code channel's session in memory: its working directory, plan canvas, conversation history, and messages waiting for the next turn.
 
 The `approvals.py` file decides which commands need approval and holds runs paused on one.
 
