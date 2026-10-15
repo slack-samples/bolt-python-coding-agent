@@ -18,7 +18,7 @@ class RunOutcome:
 
     final_output: str | None = None
     paused: Any = None
-    # The shell command waiting on approval, shown on the approval message.
+    # The command waiting on approval, shown on the approval message.
     command: str | None = None
     # Always set — the conversation so far, persisted so the next turn has context.
     history: list = field(default_factory=list)

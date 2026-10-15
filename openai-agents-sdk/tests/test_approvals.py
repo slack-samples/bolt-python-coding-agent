@@ -46,17 +46,13 @@ class TestCommandNeedsApproval:
         ]:
             assert command_needs_approval(cmd) is True, cmd
 
-    def test_shell_syntax_after_a_read_only_command_needs_approval(self):
-        for cmd in [
-            "ls && rm -rf ~",
-            "cat x | sh",
-            "ls; rm -rf build",
-            "cat README.md > /tmp/out",
-            "ls $(rm -rf build)",
-            "ls `rm -rf build`",
-            "ls\nrm -rf build",
-        ]:
-            assert command_needs_approval(cmd) is True, cmd
+    def test_shell_syntax_is_only_text_to_the_program(self):
+        # Commands run without a shell, so these are `ls` and `cat` with some
+        # odd arguments, never a second command. run_command's tests show it.
+        for cmd in ["ls && rm -rf build", "cat x | sh", "ls $(rm -rf build)"]:
+            assert command_needs_approval(cmd) is False, cmd
+        # A path outside the clone still asks, wherever it appears.
+        assert command_needs_approval("cat README.md > /tmp/out") is True
 
     def test_options_that_run_or_write_need_approval(self):
         for cmd in [
@@ -71,13 +67,15 @@ class TestCommandNeedsApproval:
 
     def test_reading_outside_the_clone_needs_approval(self):
         for cmd in [
-            "cat ~/.ssh/id_rsa",
             "cat /etc/passwd",
             "cat ../../.env",
             "find / -name '*.pem'",
-            "grep -r SECRET ~",
             "grep -f/etc/passwd x",
             "rg --file=/etc/passwd x",
+            "cat C:\\Windows\\win.ini",
+            "cat C:/Users/me/.ssh/id_rsa",
+            "cat \\\\server\\share\\secret",
+            "cat ..\\\\..\\\\.env",
         ]:
             assert command_needs_approval(cmd) is True, cmd
 

@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -52,24 +53,22 @@ async def _communicate(process, timeout: float) -> Output:
     )
 
 
-async def run_shell(command: str, *, cwd: str, timeout: float) -> Output:
-    """Run a shell command line in `cwd`. Raises asyncio.TimeoutError past `timeout` seconds."""
-    process = await asyncio.create_subprocess_shell(
-        command,
-        cwd=cwd,
-        env=command_env(),
-        stdin=asyncio.subprocess.DEVNULL,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    return await _communicate(process, timeout)
+async def run(*args: str, cwd: str, timeout: float = 60) -> Output:
+    """Run a program with its arguments in `cwd`, without a shell.
 
-
-async def run_git(*args: str, cwd: str, timeout: float = 60) -> Output:
-    """Run git with `args` in `cwd`, without a shell."""
+    Without a shell, every platform runs a command the same way, and arguments
+    like `&&`, `|`, or `$(...)` reach the program as plain text. Raises
+    FileNotFoundError when the program isn't installed, and asyncio.TimeoutError
+    past `timeout` seconds.
+    """
+    program, *rest = args
+    # Find the program on PATH, like `npm` as `npm.cmd` on Windows. A path like
+    # `./gradlew` is left as is and runs relative to `cwd`.
+    if not os.path.dirname(program):
+        program = shutil.which(program) or program
     process = await asyncio.create_subprocess_exec(
-        "git",
-        *args,
+        program,
+        *rest,
         cwd=cwd,
         env=command_env(),
         stdin=asyncio.subprocess.DEVNULL,

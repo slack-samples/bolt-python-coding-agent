@@ -308,24 +308,24 @@ class TestTools:
         assert "stopped" in rejected["message"]
 
     async def test_clone_repo_refuses_local_paths_and_options(self):
-        with patch.object(clone_module, "run_git") as run_git:
+        with patch.object(clone_module, "run") as run:
             for url in ["/etc", "file:///etc", "--upload-pack=touch x", "ext::sh"]:
                 assert "Can't clone" in await invoke(
                     clone_repo, self.deps, repo_url=url
                 )
-        run_git.assert_not_called()
+        run.assert_not_called()
 
     async def test_clone_repo_ends_the_options_before_the_url(self):
         with patch.object(
             clone_module,
-            "run_git",
+            "run",
             new=AsyncMock(
                 return_value=Output(returncode=0, stdout="main\n", stderr="")
             ),
-        ) as run_git:
+        ) as run:
             await invoke(clone_repo, self.deps, repo_url="https://example.com/repo.git")
 
-        clone = run_git.call_args_list[0].args
+        clone = run.call_args_list[0].args
         assert clone[clone.index("--") + 1] == "https://example.com/repo.git"
         assert clone[clone.index("--config") + 1] == "core.symlinks=false"
 
@@ -335,7 +335,7 @@ class TestTools:
         self.session.workdir = str(earlier)
         with patch.object(
             clone_module,
-            "run_git",
+            "run",
             new=AsyncMock(
                 return_value=Output(returncode=0, stdout="main\n", stderr="")
             ),
@@ -463,3 +463,37 @@ class TestTools:
         assert "PATH=" in result
         for secret in ("sk-test", "xoxb-test", "ghp-test"):
             assert secret not in result
+
+    async def test_run_command_passes_shell_syntax_to_the_program_as_text(
+        self, tmp_path
+    ):
+        self.session.workdir = str(tmp_path)
+
+        result = await invoke(
+            run_command, self.deps, command="ls && touch made", directory=None
+        )
+
+        assert "exit=" in result
+        assert not (tmp_path / "made").exists()
+
+    async def test_run_command_runs_in_a_directory_inside_the_clone(self, tmp_path):
+        (tmp_path / "packages" / "web").mkdir(parents=True)
+        (tmp_path / "packages" / "web" / "package.json").write_text("{}")
+        self.session.workdir = str(tmp_path / "")
+
+        inside = await invoke(
+            run_command, self.deps, command="ls", directory="packages/web"
+        )
+        outside = await invoke(run_command, self.deps, command="ls", directory="..")
+
+        assert "package.json" in inside
+        assert "not a directory in the repository" in outside
+
+    async def test_run_command_explains_a_missing_program(self, tmp_path):
+        self.session.workdir = str(tmp_path)
+
+        result = await invoke(
+            run_command, self.deps, command="no-such-program --help", directory=None
+        )
+
+        assert result == "no-such-program isn't installed here."

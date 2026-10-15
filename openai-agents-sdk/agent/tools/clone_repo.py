@@ -8,7 +8,7 @@ from agents.run_context import RunContextWrapper
 
 from agent.deps import AgentDeps
 from agent.guardrails import session_stopped
-from agent.workspace import run_git
+from agent.workspace import run
 
 # Cap the clone so an unreachable or huge repository can't wedge the session.
 CLONE_TIMEOUT_SECONDS = 120
@@ -41,7 +41,8 @@ async def clone_repo(wrapper: RunContextWrapper[AgentDeps], repo_url: str) -> st
         # The `--` keeps a URL from being read as an option like `--upload-pack`.
         # Symlinks check out as plain files, so a link in the repo can't point a
         # read-only command at a file outside the clone.
-        clone = await run_git(
+        clone = await run(
+            "git",
             "clone",
             "--config",
             "core.symlinks=false",
@@ -60,8 +61,8 @@ async def clone_repo(wrapper: RunContextWrapper[AgentDeps], repo_url: str) -> st
         shutil.rmtree(workdir, ignore_errors=True)
         return f"Clone failed: {clone.stderr.strip()[:1000]}"
 
-    head = await run_git("rev-parse", "--abbrev-ref", "HEAD", cwd=workdir)
-    commit = await run_git("rev-parse", "HEAD", cwd=workdir)
+    head = await run("git", "rev-parse", "--abbrev-ref", "HEAD", cwd=workdir)
+    commit = await run("git", "rev-parse", "HEAD", cwd=workdir)
     if session.workdir:
         shutil.rmtree(session.workdir, ignore_errors=True)
     session.workdir = workdir

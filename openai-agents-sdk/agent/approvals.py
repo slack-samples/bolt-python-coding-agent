@@ -1,7 +1,7 @@
 """Command approvals for the coding agent.
 
-`run_command` executes shell commands the model chooses. To keep a human in the
-loop, `command_needs_approval` decides which commands pause for a decision:
+`run_command` runs programs the model chooses. To keep a human in the loop,
+`command_needs_approval` decides which commands pause for a decision:
 
 - A command that only reads, such as `ls`, `grep`, or `git diff`, runs
   immediately. So do local git changes that git can undo, such as `git add`,
@@ -12,11 +12,13 @@ loop, `command_needs_approval` decides which commands pause for a decision:
 
 Running the repository's own code, such as its tests, build, or package
 installs, always asks, since a cloned repository is untrusted input. So does any
-command with shell syntax like `&&`, `|`, `;`, `>`, or `$(...)`, which could
-chain a second command behind a read-only one, and any path that leaves the
-clone, like `/etc`, `~/.ssh`, or `../x`. File edits don't go through here: the
-`write_file` and `edit_file` tools only write inside the clone. Only ever run
-this against trusted, throwaway repositories. See the README security section.
+path that leaves the clone, like `/etc`, `C:\\Windows`, or `../x`. Commands run
+without a shell, and this splits a command into arguments the same way
+`run_command` does, so what's checked here is exactly what runs: `&&`, `|`, or
+`$(...)` can't chain a second command, they're only text. File edits don't go
+through here: the `write_file` and `edit_file` tools only write inside the
+clone. Only ever run this against trusted, throwaway repositories. See the
+README security section.
 """
 
 import shlex
@@ -72,31 +74,28 @@ UNSAFE_OPTIONS: dict[str, tuple[str, ...]] = {
     "tree": ("-o",),
 }
 
-# Characters the shell treats as syntax: chaining, pipes, redirects, and
-# substitutions. Any of them asks first, even inside quotes, to stay simple.
-SHELL_SYNTAX: frozenset[str] = frozenset(";&|<>$`()\n")
-
 
 def _reads_outside_the_clone(arg: str) -> bool:
     """Whether an argument can point outside the working directory.
 
-    That's a path from the root or home (`/etc`, `~/.ssh`) or one that climbs out
-    (`../x`). An option carrying a path, like `--file=/etc/x` or `-f/etc/x`, asks
-    whenever it has a `/`, to stay simple.
+    That's a path from the root or a drive (`/etc`, `C:/Windows`, `//server`) or
+    one that climbs out (`../x`), with either kind of slash. An option carrying a
+    path, like `--file=/etc/x` or `-f/etc/x`, asks whenever it has a slash, to
+    stay simple.
     """
-    if arg.startswith("-"):
-        return "/" in arg or "~" in arg
-    return arg.startswith(("/", "~")) or ".." in arg.split("/")
+    path = arg.replace("\\", "/")
+    if path.startswith("-"):
+        return "/" in path
+    has_drive = len(path) > 1 and path[1] == ":"
+    return path.startswith("/") or has_drive or ".." in path.split("/")
 
 
 def command_needs_approval(command: str) -> bool:
-    """Whether a shell command needs a human to approve it before it runs."""
-    if not command.strip() or any(char in SHELL_SYNTAX for char in command):
-        return True
+    """Whether a command needs a human to approve it before it runs."""
     try:
         program, *args = shlex.split(command)
     except ValueError:
-        # Unparseable (e.g. unbalanced quotes) — be safe and require approval.
+        # Unparseable (e.g. unbalanced quotes) or empty — be safe and require approval.
         return True
 
     if program not in READ_ONLY_COMMANDS:

@@ -25,7 +25,7 @@ class TestRuns:
         deps = AgentDeps(client=client, session=session, user_id="U123")
         replaced, _ = coding_agent(
             lambda n: (
-                call("run_command", command="touch made && ls")
+                call("run_command", command="touch made", directory=None)
                 if n == 1
                 else say("Made it.")
             )
@@ -34,7 +34,7 @@ class TestRuns:
         with replaced:
             outcome = await start_run([], "<@U123>: make a file", deps)
             assert outcome.needs_approval
-            assert outcome.command == "touch made && ls"
+            assert outcome.command == "touch made"
             assert not (tmp_path / "made").exists()
 
             resumed = await resume_run(outcome.paused, True, deps)
@@ -47,7 +47,9 @@ class TestRuns:
         deps = AgentDeps(client=client, session=session, user_id="U123")
         replaced, model = coding_agent(
             lambda n: (
-                call("run_command", command="touch made") if n == 1 else say("Okay.")
+                call("run_command", command="touch made", directory=None)
+                if n == 1
+                else say("Okay.")
             )
         )
 
@@ -81,7 +83,9 @@ class TestRuns:
     async def test_running_out_of_turns_ends_with_a_message(self, client, tmp_path):
         session = CodeChannelSession(channel_id="C_CODE", workdir=str(tmp_path))
         deps = AgentDeps(client=client, session=session, user_id="U123")
-        replaced, model = coding_agent(lambda n: call("run_command", command="pwd"))
+        replaced, model = coding_agent(
+            lambda n: call("run_command", command="pwd", directory=None)
+        )
 
         with replaced, patch.object(agents_module, "MAX_TURNS", 3):
             outcome = await start_run([], "<@U123>: go", deps)
