@@ -54,7 +54,7 @@ Each code channel method is a tool the model calls when it decides to, in [`agen
 
 ### Command approvals
 
-`run_command` is registered with the OpenAI Agents SDK's `needs_approval` hook ([`agent/approvals.py`](./agent/approvals.py)):
+`run_command` is registered with the OpenAI Agents SDK's `needs_approval` hook ([`agent/guardrails.py`](./agent/guardrails.py)), which asks `command_needs_approval` in [`agent/approvals.py`](./agent/approvals.py):
 
 - **Read-only** commands like `ls`, `grep`, and `git diff`, and **local git changes** like `git add`, `git commit`, and `git switch -c`, run with no prompt. A command with shell syntax (`&&`, `|`, `;`, `>`, `$(...)`) or a path outside the clone always asks, so nothing can be chained behind a safe command or read files elsewhere on the machine.
 - **File edits** don't go through approvals. `write_file` and `edit_file` only write inside the clone, and never into `.git`, whose config and hooks decide what git runs.
@@ -334,7 +334,7 @@ The `outcome.py` file defines the `RunOutcome` that `agent.py` returns and `turn
 
 The `context.py` file reads the thread or direct message a request came from, so the agent can follow the conversation.
 
-The `guardrails.py` file holds the tool guardrail that skips every tool call once the session is stopped.
+The `guardrails.py` file holds the SDK hooks that gate tool calls: the approval check for `run_command`, and the guardrail that skips every tool call once the session is stopped.
 
 The `deps.py` file defines the `AgentDeps` and `RequestDeps` dataclasses passed to the agents at runtime, providing access to the Slack client and the session or request.
 

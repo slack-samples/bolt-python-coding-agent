@@ -6,37 +6,21 @@ See the README security section.
 """
 
 import asyncio
-from logging import getLogger
 from pathlib import Path
 
 from agents import function_tool
 from agents.run_context import RunContextWrapper
 
-from agent.approvals import command_needs_approval
 from agent.deps import AgentDeps
-from agent.guardrails import session_stopped
+from agent.guardrails import run_command_needs_approval, session_stopped
 from agent.workspace import clip, run_shell
-
-logger = getLogger(__name__)
 
 # Cap any single command so a hung/looping command can't wedge the session.
 COMMAND_TIMEOUT_SECONDS = 120
 
 
-async def needs_approval(_ctx, arguments: dict, _call_id: str) -> bool:
-    """The SDK's `needs_approval` hook, checked with the tool's arguments before it runs.
-
-    Returning True pauses the run with a ToolApprovalItem the listener handles.
-    """
-    command = (arguments or {}).get("command", "")
-    needs = command_needs_approval(command)
-    if needs:
-        logger.info("run_command needs approval: %s", command)
-    return needs
-
-
 @function_tool(
-    needs_approval=needs_approval,
+    needs_approval=run_command_needs_approval,
     tool_input_guardrails=[session_stopped],
 )
 async def run_command(wrapper: RunContextWrapper[AgentDeps], command: str) -> str:
