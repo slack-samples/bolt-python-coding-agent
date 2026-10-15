@@ -78,21 +78,6 @@ async def run(*args: str, cwd: str, timeout: float = 60) -> Output:
     return await _communicate(process, timeout)
 
 
-def resolve_path(workdir: str, path: str, *, writing: bool = False) -> Path | None:
-    """The absolute path for `path` inside `workdir`, or None if it's outside.
-
-    Writes into `.git` are refused too: its config and hooks decide what git
-    runs, and git commands like `git commit` run without asking.
-    """
-    root = Path(workdir).resolve()
-    target = (root / path).resolve()
-    if not target.is_relative_to(root):
-        return None
-    if writing and _in_git_dir(root, target):
-        return None
-    return target
-
-
 def _in_git_dir(root: Path, target: Path) -> bool:
     """Whether `target` is in a `.git` directory, however its name is written.
 
@@ -113,6 +98,21 @@ def _in_git_dir(root: Path, target: Path) -> bool:
         for parent in (target, *target.parents)
         if parent.is_relative_to(root) and parent.exists()
     )
+
+
+def resolve_path(workdir: str, path: str, *, writing: bool = False) -> Path | None:
+    """The absolute path for `path` inside `workdir`, or None if it's outside.
+
+    Writes into `.git` are refused too: its config and hooks decide what git
+    runs, and git commands like `git commit` run without asking.
+    """
+    root = Path(workdir).resolve()
+    target = (root / path).resolve()
+    if not target.is_relative_to(root):
+        return None
+    if writing and _in_git_dir(root, target):
+        return None
+    return target
 
 
 def clip(text: str, limit: int) -> str:
