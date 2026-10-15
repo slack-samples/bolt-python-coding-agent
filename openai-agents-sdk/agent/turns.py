@@ -35,6 +35,174 @@ EXPIRED = ":hourglass: This approval has expired — please ask me again."
 _other_channels: set[str] = set()
 
 
+def _shown(command: str | None) -> str:
+    """A command for a code block: short enough for a message, and unable to end the block early."""
+    return clip((command or "").replace("```", "'''"), 2500)
+
+
+async def _close_message(
+    client: AsyncWebClient, channel_id: str, ts: str, text: str
+) -> None:
+    """Replace a message's blocks with `text`, so its buttons can't be clicked again."""
+    try:
+        await client.chat_update(
+            channel=channel_id,
+            ts=ts,
+            text=text,
+            blocks=[SectionBlock(text=MarkdownTextObject(text=text))],
+        )
+    except Exception:
+        logger.exception("Failed to update the approval message")
+
+
+async def _fail_turn(deps: AgentDeps, error: Exception) -> None:
+    """Report a turn that raised, and move the session out of `processing`.
+
+    The session keeps the history from before this turn, so the next message
+    starts from the last turn that finished.
+    """
+    session = deps.session
+    if session.archived:
+        session_store.discard(session.channel_id)
+        return
+    try:
+        # The stop handler already confirmed the stop, so only the status is left.
+        if not session.stopped:
+            await deps.client.chat_postMessage(
+                channel=session.channel_id,
+                text=f":warning: Something went wrong ({error}). Send a message to try again.",
+            )
+        await deps.client.agents_sessions_setStatus(
+            channel_id=session.channel_id,
+            status="active",
+        )
+    except Exception:
+        logger.exception("Failed to report the failed turn")
+
+
+async def deliver_outcome(*, outcome: RunOutcome, deps: AgentDeps) -> bool:
+    """Post an agent run's outcome to the code channel. Returns whether it paused.
+
+    If the run paused for approval, park it and post Approve/Deny buttons.
+    Otherwise post the final message top-level (the code channel convention)
+    and mark the session active again.
+    """
+    client = deps.client
+    session = deps.session
+
+    if session.archived:
+        session_store.discard(session.channel_id)
+        return False
+    # Persist conversation history so the next turn resumes with context.
+    session.history = outcome.history
+    session_store.put(session)
+    # After the stop button, post nothing. The stop handler already confirmed
+    # the stop, but this turn may have set `processing` after it, so set
+    # `active` again.
+    if session.stopped:
+        await client.agents_sessions_setStatus(
+            channel_id=session.channel_id,
+            status="active",
+        )
+        return False
+
+    if outcome.needs_approval:
+        # The agent can't continue until someone decides, so the session is suspended.
+        await client.agents_sessions_setStatus(
+            channel_id=session.channel_id,
+            status="suspended",
+        )
+        # The button value carries only the decision. The channel and this
+        # message's ts identify which paused run to resume.
+        posted = await client.chat_postMessage(
+            channel=session.channel_id,
+            text="The agent needs approval to run a command.",
+            blocks=[
+                SectionBlock(
+                    text=MarkdownTextObject(
+                        text=(
+                            ":lock: *The agent wants to run a command that needs your approval:*\n"
+                            f"```{_shown(outcome.command)}```"
+                        ),
+                    ),
+                ),
+                ActionsBlock(
+                    elements=[
+                        ButtonElement(
+                            text="Approve",
+                            style="primary",
+                            action_id="approve_command",
+                            value="approve",
+                        ),
+                        ButtonElement(
+                            text="Deny",
+                            style="danger",
+                            action_id="deny_command",
+                            value="deny",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        pending_store.put(
+            session.channel_id,
+            PendingApproval(
+                paused=outcome.paused,
+                deps=deps,
+                command=outcome.command,
+                message_ts=posted["ts"],
+            ),
+        )
+        return True
+
+    text = outcome.final_output or "(the agent finished without a message)"
+    # The model writes standard markdown, not Slack mrkdwn.
+    await client.chat_postMessage(channel=session.channel_id, markdown_text=text)
+    await client.agents_sessions_setStatus(
+        channel_id=session.channel_id,
+        status="active",
+    )
+    return False
+
+
+async def _run(deps: AgentDeps, run: Callable[[], Awaitable[RunOutcome]]) -> bool:
+    """Run one agent turn and post its outcome. Returns whether it paused on an approval."""
+    try:
+        await deps.client.agents_sessions_setStatus(
+            channel_id=deps.channel_id,
+            status="processing",
+        )
+        outcome = await run()
+        return await deliver_outcome(outcome=outcome, deps=deps)
+    except Exception as e:
+        logger.exception("Agent turn failed")
+        await _fail_turn(deps, e)
+        return False
+
+
+async def _run_inbox(
+    client: AsyncWebClient, session: CodeChannelSession, user_id: str
+) -> None:
+    """Run turns until the inbox is empty or a turn pauses on an approval."""
+    while session.inbox and not session.archived:
+        # A stop clears the inbox, so anything here was sent after it and picks
+        # the session back up.
+        session.stopped = False
+        messages, session.inbox = session.inbox, []
+        text = "\n\n".join(messages)
+        if session.origin_context and not session.history:
+            text = (
+                "This code channel was started from this conversation:\n"
+                f"{session.origin_context}\n\n{text}"
+            )
+            session.origin_context = None
+
+        deps = AgentDeps(client=client, session=session, user_id=user_id)
+        paused = await _run(deps, partial(start_run, session.history, text, deps))
+        if paused:
+            return
+
+
 async def answer_request(
     *,
     client: AsyncWebClient,
@@ -252,171 +420,3 @@ def end_session(channel_id: str) -> None:
     """Forget a code channel and delete its working directory."""
     pending_store.discard(channel_id)
     session_store.discard(channel_id)
-
-
-async def _run_inbox(
-    client: AsyncWebClient, session: CodeChannelSession, user_id: str
-) -> None:
-    """Run turns until the inbox is empty or a turn pauses on an approval."""
-    while session.inbox and not session.archived:
-        # A stop clears the inbox, so anything here was sent after it and picks
-        # the session back up.
-        session.stopped = False
-        messages, session.inbox = session.inbox, []
-        text = "\n\n".join(messages)
-        if session.origin_context and not session.history:
-            text = (
-                "This code channel was started from this conversation:\n"
-                f"{session.origin_context}\n\n{text}"
-            )
-            session.origin_context = None
-
-        deps = AgentDeps(client=client, session=session, user_id=user_id)
-        paused = await _run(deps, partial(start_run, session.history, text, deps))
-        if paused:
-            return
-
-
-async def _run(deps: AgentDeps, run: Callable[[], Awaitable[RunOutcome]]) -> bool:
-    """Run one agent turn and post its outcome. Returns whether it paused on an approval."""
-    try:
-        await deps.client.agents_sessions_setStatus(
-            channel_id=deps.channel_id,
-            status="processing",
-        )
-        outcome = await run()
-        return await deliver_outcome(outcome=outcome, deps=deps)
-    except Exception as e:
-        logger.exception("Agent turn failed")
-        await _fail_turn(deps, e)
-        return False
-
-
-async def deliver_outcome(*, outcome: RunOutcome, deps: AgentDeps) -> bool:
-    """Post an agent run's outcome to the code channel. Returns whether it paused.
-
-    If the run paused for approval, park it and post Approve/Deny buttons.
-    Otherwise post the final message top-level (the code channel convention)
-    and mark the session active again.
-    """
-    client = deps.client
-    session = deps.session
-
-    if session.archived:
-        session_store.discard(session.channel_id)
-        return False
-    # Persist conversation history so the next turn resumes with context.
-    session.history = outcome.history
-    session_store.put(session)
-    # After the stop button, post nothing. The stop handler already confirmed
-    # the stop, but this turn may have set `processing` after it, so set
-    # `active` again.
-    if session.stopped:
-        await client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="active",
-        )
-        return False
-
-    if outcome.needs_approval:
-        # The agent can't continue until someone decides, so the session is suspended.
-        await client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="suspended",
-        )
-        # The button value carries only the decision. The channel and this
-        # message's ts identify which paused run to resume.
-        posted = await client.chat_postMessage(
-            channel=session.channel_id,
-            text="The agent needs approval to run a command.",
-            blocks=[
-                SectionBlock(
-                    text=MarkdownTextObject(
-                        text=(
-                            ":lock: *The agent wants to run a command that needs your approval:*\n"
-                            f"```{_shown(outcome.command)}```"
-                        ),
-                    ),
-                ),
-                ActionsBlock(
-                    elements=[
-                        ButtonElement(
-                            text="Approve",
-                            style="primary",
-                            action_id="approve_command",
-                            value="approve",
-                        ),
-                        ButtonElement(
-                            text="Deny",
-                            style="danger",
-                            action_id="deny_command",
-                            value="deny",
-                        ),
-                    ],
-                ),
-            ],
-        )
-        pending_store.put(
-            session.channel_id,
-            PendingApproval(
-                paused=outcome.paused,
-                deps=deps,
-                command=outcome.command,
-                message_ts=posted["ts"],
-            ),
-        )
-        return True
-
-    text = outcome.final_output or "(the agent finished without a message)"
-    # The model writes standard markdown, not Slack mrkdwn.
-    await client.chat_postMessage(channel=session.channel_id, markdown_text=text)
-    await client.agents_sessions_setStatus(
-        channel_id=session.channel_id,
-        status="active",
-    )
-    return False
-
-
-async def _fail_turn(deps: AgentDeps, error: Exception) -> None:
-    """Report a turn that raised, and move the session out of `processing`.
-
-    The session keeps the history from before this turn, so the next message
-    starts from the last turn that finished.
-    """
-    session = deps.session
-    if session.archived:
-        session_store.discard(session.channel_id)
-        return
-    try:
-        # The stop handler already confirmed the stop, so only the status is left.
-        if not session.stopped:
-            await deps.client.chat_postMessage(
-                channel=session.channel_id,
-                text=f":warning: Something went wrong ({error}). Send a message to try again.",
-            )
-        await deps.client.agents_sessions_setStatus(
-            channel_id=session.channel_id,
-            status="active",
-        )
-    except Exception:
-        logger.exception("Failed to report the failed turn")
-
-
-def _shown(command: str | None) -> str:
-    """A command for a code block: short enough for a message, and unable to end the block early."""
-    return clip((command or "").replace("```", "'''"), 2500)
-
-
-async def _close_message(
-    client: AsyncWebClient, channel_id: str, ts: str, text: str
-) -> None:
-    """Replace a message's blocks with `text`, so its buttons can't be clicked again."""
-    try:
-        await client.chat_update(
-            channel=channel_id,
-            ts=ts,
-            text=text,
-            blocks=[SectionBlock(text=MarkdownTextObject(text=text))],
-        )
-    except Exception:
-        logger.exception("Failed to update the approval message")
