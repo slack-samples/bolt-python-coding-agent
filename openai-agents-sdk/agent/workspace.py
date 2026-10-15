@@ -28,7 +28,7 @@ class Output:
     stderr: str
 
 
-def command_env() -> dict[str, str]:
+def _command_env() -> dict[str, str]:
     """The environment commands run with: the app's, minus its secrets."""
     env = {
         name: value
@@ -70,7 +70,7 @@ async def run(*args: str, cwd: str, timeout: float = 60) -> Output:
         program,
         *rest,
         cwd=cwd,
-        env=command_env(),
+        env=_command_env(),
         stdin=asyncio.subprocess.DEVNULL,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,

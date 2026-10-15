@@ -1,16 +1,25 @@
-from agent.workspace import clip, command_env, resolve_path
+import json
+import sys
+
+from agent.workspace import clip, resolve_path, run
 
 
 class TestWorkspace:
-    def test_command_env_drops_secrets_and_keeps_the_rest(self, monkeypatch):
+    async def test_run_drops_secrets_and_keeps_the_rest(self, monkeypatch, tmp_path):
         monkeypatch.setenv("OPENAI_API_KEY", "x")
         monkeypatch.setenv("SLACK_APP_TOKEN", "x")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "x")
         monkeypatch.setenv("DB_PASSWORD", "x")
         monkeypatch.setenv("JAVA_HOME", "/opt/java")
 
-        env = command_env()
+        result = await run(
+            sys.executable,
+            "-c",
+            "import json, os; print(json.dumps(dict(os.environ)))",
+            cwd=str(tmp_path),
+        )
 
+        env = json.loads(result.stdout)
         for name in (
             "OPENAI_API_KEY",
             "SLACK_APP_TOKEN",
