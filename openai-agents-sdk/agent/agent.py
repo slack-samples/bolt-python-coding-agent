@@ -1,84 +1,192 @@
-import asyncio
-import logging
+"""The OpenAI Agents SDK side of the coding agent.
 
-from agents import Agent, Runner
-from agents.mcp import MCPServerStreamableHttp
-
-from agent.deps import AgentDeps
-from agent.tools import add_emoji_reaction
-
-SYSTEM_PROMPT = """\
-You are a friendly Slack assistant. You help people by answering questions, \
-having conversations, and being generally useful in Slack.
-
-## PERSONALITY
-- Friendly, helpful, and approachable
-- Lightly witty — a touch of humor when appropriate, but never forced
-- Concise and clear — respect people's time
-- Confident but honest when you don't know something
-
-## RESPONSE GUIDELINES
-- Keep responses to 3 sentences max — be punchy, scannable, and actionable
-- End with a clear next step on its own line so it's easy to spot
-- Use a bullet list only for multi-step instructions
-- Use casual, conversational language
-- Use emoji sparingly — at most one per message, and only to set tone
-
-## FORMATTING RULES
-- Use standard Markdown syntax: **bold**, _italic_, `code`, ```code blocks```, > blockquotes
-- Use bullet points for multi-step instructions
-
-## EMOJI REACTIONS
-Always react to every user message with `add_emoji_reaction` before responding. \
-Pick any Slack emoji that reflects the *topic* or *tone* of the message — be creative and specific \
-(e.g. `dog` for dog topics, `books` for learning, `wave` for greetings). \
-Vary your picks across a thread; don't repeat the same emoji.
-
-## SLACK MCP SERVER
-You may have access to the Slack MCP Server, which gives you powerful Slack tools \
-beyond your built-in tools. Use them whenever they would help the user.
-
-Available capabilities:
-- **Search**: Search messages and files across public channels, search for channels by name
-- **Read**: Read channel message history, read thread replies, read canvas documents
-- **Write**: Send messages, create draft messages, schedule messages for later
-- **Canvases**: Create, read, and update Slack canvas documents
-
-Use these tools when they can help answer a question or complete a task — for example, \
-searching for relevant messages, checking a channel for context, or creating a canvas. \
-Also use them when the user explicitly asks you to perform a Slack action.
+Everything that touches the SDK lives here, in `agent/guardrails.py`, and in
+`agent/tools/`. The turn handling in `agent/turns.py` calls only `run_request`,
+which returns the reply text, and `start_run` and `resume_run`, which return a
+`RunOutcome`.
 """
 
-logger = logging.getLogger(__name__)
+import json
+from dataclasses import dataclass
 
-SLACK_MCP_URL = "https://mcp.slack.com/mcp"
+from agents import (
+    Agent,
+    FunctionToolResult,
+    ModelSettings,
+    RunContextWrapper,
+    RunErrorHandlerInput,
+    RunErrorHandlerResult,
+    Runner,
+    RunState,
+    ToolApprovalItem,
+    ToolsToFinalOutputResult,
+)
+
+from agent.outcome import RunOutcome
+from agent.prompts import REQUEST_PROMPT, SYSTEM_PROMPT
+from agent.sessions import AgentDeps, RequestDeps
+from agent.tools import (
+    archive_channel,
+    clone_repo,
+    create_code_channel,
+    edit_file,
+    list_views,
+    publish_diff,
+    publish_html_view,
+    read_file,
+    read_plan,
+    remove_view,
+    rename_session,
+    run_command,
+    set_commands,
+    set_context_bar,
+    write_file,
+    write_plan,
+)
+
+# Model calls allowed per turn. Coding work reads several files before editing,
+# so this is well above the SDK's default of 10.
+MAX_TURNS = 50
+
+# Drop the oldest conversation when a long session outgrows the model's
+# context window, rather than failing every turn after that.
+MODEL_SETTINGS = ModelSettings(truncation="auto")
+
+
+def _stop_once_channel_created(
+    wrapper: RunContextWrapper[RequestDeps], _results: list[FunctionToolResult]
+) -> ToolsToFinalOutputResult:
+    """End the request once a code channel exists, since the work continues there."""
+    return ToolsToFinalOutputResult(
+        is_final_output=wrapper.context.code_channel_id is not None,
+        final_output=None,
+    )
+
+
+def _stop_once_archived(
+    wrapper: RunContextWrapper[AgentDeps], _results: list[FunctionToolResult]
+) -> ToolsToFinalOutputResult:
+    """End the turn once the channel is archived, since nothing more can be posted."""
+    return ToolsToFinalOutputResult(
+        is_final_output=wrapper.context.session.archived,
+        final_output=None,
+    )
+
+
+request_agent = Agent[RequestDeps](
+    name="Coding Agent",
+    instructions=REQUEST_PROMPT,
+    tools=[create_code_channel],
+    tool_use_behavior=_stop_once_channel_created,
+    model="gpt-6-luna",
+    model_settings=MODEL_SETTINGS,
+)
 
 agent = Agent[AgentDeps](
-    name="Starter Agent",
+    name="Coding Agent",
     instructions=SYSTEM_PROMPT,
-    tools=[add_emoji_reaction],
-    model="gpt-4.1-mini",
+    tools=[
+        clone_repo,
+        read_file,
+        write_file,
+        edit_file,
+        run_command,
+        publish_diff,
+        set_context_bar,
+        write_plan,
+        read_plan,
+        publish_html_view,
+        list_views,
+        remove_view,
+        set_commands,
+        rename_session,
+        archive_channel,
+    ],
+    tool_use_behavior=_stop_once_archived,
+    model="gpt-6.1-sol",
+    model_settings=MODEL_SETTINGS,
 )
 
 
-def run_agent(input_items, deps):
-    """Run the agent, optionally connecting to the Slack MCP server."""
-    if deps.user_token:
-        logger.info("Slack MCP Server enabled (user_token present)")
-        return asyncio.run(_run_with_mcp(input_items, deps))
+@dataclass
+class PausedRun:
+    """The SDK's handle on a run paused for approval, passed back to `resume_run`."""
 
-    logger.info("Slack MCP Server disabled (no user_token)")
-    return Runner.run_sync(agent, input=input_items, context=deps)
+    state: RunState
+    item: ToolApprovalItem
 
 
-async def _run_with_mcp(input_items, deps):
-    """Run the agent with the Slack MCP Server connected."""
-    mcp_server = MCPServerStreamableHttp(
-        params={
-            "url": SLACK_MCP_URL,
-            "headers": {"Authorization": f"Bearer {deps.user_token}"},
-        },
+def _settle(result) -> RunOutcome:
+    """Turn a RunResult into a RunOutcome, detecting a pending approval."""
+    history = result.to_input_list()
+    state = result.to_state()
+    interruptions = state.get_interruptions()
+    if interruptions:
+        # The history ends with calls still waiting on approval. Give each one
+        # an output so the history stays valid if the run is stopped or replaced
+        # instead of resumed. A resumed run replaces this history with its own.
+        history += [
+            {
+                "type": "function_call_output",
+                "call_id": item.call_id,
+                "output": "Not run. The user didn't approve this command.",
+            }
+            for item in interruptions
+        ]
+        # One command at a time keeps the sample's approval UX simple.
+        item = interruptions[0]
+        # The SDK gives the tool call's arguments as a JSON string.
+        arguments = json.loads(item.arguments or "{}")
+        return RunOutcome(
+            paused=PausedRun(state=state, item=item),
+            command=arguments.get("command", ""),
+            history=history,
+        )
+    return RunOutcome(final_output=result.final_output, history=history)
+
+
+def _out_of_turns(_data: RunErrorHandlerInput) -> RunErrorHandlerResult:
+    """End a turn that used every model call with a message, keeping its history."""
+    return RunErrorHandlerResult(
+        final_output=(
+            f"I used all {MAX_TURNS} steps I get in one turn before finishing. "
+            "Send a message and I'll pick up where I left off."
+        ),
     )
-    async with mcp_server:
-        agent_with_mcp = agent.clone(mcp_servers=[mcp_server])
-        return await Runner.run(agent_with_mcp, input=input_items, context=deps)
+
+
+async def run_request(prompt: str, deps: RequestDeps) -> str | None:
+    """Reply to a request outside a code channel, or create one for it via the tool."""
+    result = await Runner.run(request_agent, input=prompt, context=deps)
+    return result.final_output
+
+
+async def start_run(history: list, text: str, deps: AgentDeps) -> RunOutcome:
+    """Start an agent turn. May complete, or pause awaiting command approval."""
+    result = await Runner.run(
+        agent,
+        input=history + [{"role": "user", "content": text}],
+        context=deps,
+        max_turns=MAX_TURNS,
+        error_handlers={"max_turns": _out_of_turns},
+    )
+    return _settle(result)
+
+
+async def resume_run(paused: PausedRun, approved: bool, deps: AgentDeps) -> RunOutcome:
+    """Resume a paused run with the user's decision on its pending command."""
+    if approved:
+        paused.state.approve(paused.item)
+    else:
+        paused.state.reject(
+            paused.item,
+            rejection_message="The user denied running this command.",
+        )
+    # The paused state carries the run's turn count and MAX_TURNS with it.
+    result = await Runner.run(
+        agent,
+        paused.state,
+        context=deps,
+        error_handlers={"max_turns": _out_of_turns},
+    )
+    return _settle(result)

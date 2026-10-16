@@ -1,7 +1,8 @@
-from slack_bolt import App
+from slack_bolt.async_app import AsyncApp
 
-from .feedback_buttons import handle_feedback_button
+from .approval_buttons import handle_approval_buttons
 
 
-def register(app: App):
-    app.action("feedback")(handle_feedback_button)
+def register(app: AsyncApp):
+    app.action("approve_command")(handle_approval_buttons)
+    app.action("deny_command")(handle_approval_buttons)

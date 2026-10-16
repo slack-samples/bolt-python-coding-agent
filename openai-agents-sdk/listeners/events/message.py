@@ -1,94 +1,41 @@
-from logging import Logger
+from slack_bolt.context.async_context import AsyncBoltContext
+from slack_sdk.web.async_client import AsyncWebClient
 
-from slack_bolt import BoltContext, Say, SayStream, SetStatus
-from slack_sdk import WebClient
-
-from agent import AgentDeps, run_agent
-from listeners.views.feedback_builder import build_feedback_blocks
-from thread_context import conversation_store
+from agent import answer_request, find_session, run_turn
 
 
-def handle_message(
-    client: WebClient,
-    context: BoltContext,
-    event: dict,
-    logger: Logger,
-    say: Say,
-    say_stream: SayStream,
-    set_status: SetStatus,
+async def handle_message(
+    client: AsyncWebClient, context: AsyncBoltContext, event: dict
 ):
-    """Handle messages sent to the agent via DM or in threads the bot is part of."""
-    # Skip message subtypes (edits, deletes, etc.) and bot messages.
-    if event.get("subtype"):
+    """Handle a direct message, or a message in a code channel, without an @mention.
+
+    A direct message is answered like a mention: in place, or with a code channel
+    for bigger work. In a code channel the people in it are talking to the agent
+    directly, so every message is a turn. Messages anywhere else are left alone.
+    """
+    # Ignore edits, joins, or bot posts.
+    if event.get("subtype") or event.get("bot_id"):
         return
-    if event.get("bot_id"):
-        return
+    mention = f"<@{context.bot_user_id}>"
+    text = event.get("text", "").strip()
+    channel_id = context.channel_id
 
-    is_dm = event.get("channel_type") == "im"
-    is_thread_reply = event.get("thread_ts") is not None
-
-    if is_dm:
-        pass
-    elif is_thread_reply:
-        # Channel thread replies are handled only if the bot is already engaged
-        history = conversation_store.get_history(context.channel_id, event["thread_ts"])
-        if history is None:
-            return
-    else:
-        # Top-level channel messages are handled by app_mentioned
-        return
-
-    try:
-        channel_id = context.channel_id
-        text = event.get("text", "")
-        thread_ts = event.get("thread_ts") or event["ts"]
-
-        user_id = context.user_id
-
-        # Get conversation history
-        history = conversation_store.get_history(channel_id, thread_ts)
-
-        # Set assistant thread status with loading messages
-        set_status(
-            status="Thinking...",
-            loading_messages=[
-                "Teaching the hamsters to type faster…",
-                "Untangling the internet cables…",
-                "Consulting the office goldfish…",
-                "Polishing up the response just for you…",
-                "Convincing the AI to stop overthinking…",
-            ],
-        )
-
-        # Build input for the agent
-        if history:
-            input_items = history + [{"role": "user", "content": text}]
-        else:
-            input_items = text
-
-        # Run the agent
-        deps = AgentDeps(
+    if event.get("channel_type") == "im":
+        await answer_request(
             client=client,
-            user_id=user_id,
             channel_id=channel_id,
-            thread_ts=thread_ts,
             message_ts=event["ts"],
-            user_token=context.user_token,
+            thread_ts=event.get("thread_ts"),
+            text=text.replace(mention, "").strip(),
+            user_id=context.user_id,
+            in_dm=True,
         )
-        result = run_agent(input_items, deps)
+        return
 
-        # Stream response in thread with feedback buttons
-        streamer = say_stream()
-        streamer.append(markdown_text=result.final_output)
-        feedback_blocks = build_feedback_blocks()
-        streamer.stop(blocks=feedback_blocks)
-
-        # Store conversation history
-        conversation_store.set_history(channel_id, thread_ts, result.to_input_list())
-
-    except Exception as e:
-        logger.exception("Failed to handle message")
-        say(
-            text=f":warning: Something went wrong! ({e})",
-            thread_ts=event.get("thread_ts") or event.get("ts"),
-        )
+    # A message that mentions the agent also arrives as app_mention, which runs the turn.
+    if not text or mention in text:
+        return
+    session = await find_session(client, channel_id)
+    if session is None:
+        return
+    await run_turn(client=client, session=session, text=text, user_id=context.user_id)

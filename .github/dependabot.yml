@@ -4,14 +4,18 @@ updates:
     directories:
       - "/"
       - "/openai-agents-sdk"
-      - "/pydantic-ai"
-      - "/claude-agent-sdk"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+    cooldown:
+      default-days: 7
+      exclude:
+        - "slack-*"
     labels:
       - "pip"
       - "dependencies"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "daily"
+    cooldown:
+      default-days: 7
