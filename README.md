@@ -10,6 +10,7 @@ A sample Slack agent that showcases [Slack Code](https://docs.slack.dev/ai/slack
 | App                   | Directory            | Get started                                  | Framework                                                       |
 | --------------------- | -------------------- | -------------------------------------------- | --------------------------------------------------------------- |
 | **OpenAI Agents SDK** | `openai-agents-sdk/` | [View README](./openai-agents-sdk/README.md) | [openai-agents](https://openai.github.io/openai-agents-python/) |
+| **Pydantic AI**       | `pydantic-ai/`       | [View README](./pydantic-ai/README.md)       | [pydantic-ai](https://ai.pydantic.dev/)                         |
 
 ## What it can do
 

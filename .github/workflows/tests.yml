@@ -16,6 +16,7 @@ jobs:
       matrix:
         directory:
           - openai-agents-sdk
+          - pydantic-ai
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
