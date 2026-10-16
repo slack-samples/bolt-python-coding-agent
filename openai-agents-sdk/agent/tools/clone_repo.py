@@ -6,8 +6,8 @@ from tempfile import mkdtemp
 from agents import function_tool
 from agents.run_context import RunContextWrapper
 
-from agent.deps import AgentDeps
 from agent.guardrails import session_stopped
+from agent.sessions import AgentDeps
 from agent.workspace import run
 
 # Cap the clone so an unreachable or huge repository can't wedge the session.

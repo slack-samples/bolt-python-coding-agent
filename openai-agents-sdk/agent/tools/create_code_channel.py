@@ -2,7 +2,7 @@ from agents import function_tool
 from agents.run_context import RunContextWrapper
 from slack_sdk.errors import SlackApiError
 
-from agent.deps import RequestDeps
+from agent.sessions import RequestDeps
 
 
 @function_tool

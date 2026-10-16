@@ -5,11 +5,16 @@ channel_id. Each entry tracks the temp working directory the agent cloned into,
 the plan canvas attached to the channel, and the conversation history, so
 follow-up turns in the channel resume the same context. A session is discarded
 when its channel is archived.
+
+The deps passed to each agent run live here too: `AgentDeps` for a turn in a
+code channel, and `RequestDeps` for a request outside one.
 """
 
 import asyncio
 import shutil
 from dataclasses import dataclass, field
+
+from slack_sdk.web.async_client import AsyncWebClient
 
 
 @dataclass
@@ -37,6 +42,39 @@ class CodeChannelSession:
     archived: bool = False
     # One turn at a time per channel, so turns don't race on history.
     turn_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
+
+
+@dataclass
+class AgentDeps:
+    """Dependencies passed to the agent and its tools for one turn.
+
+    In a code channel the agent works inside `session.workdir` (a temp clone)
+    and drives the channel chrome through `client` (the code channel Web API
+    methods).
+    """
+
+    client: AsyncWebClient
+    session: CodeChannelSession
+
+    @property
+    def channel_id(self) -> str:
+        return self.session.channel_id
+
+
+@dataclass
+class RequestDeps:
+    """Dependencies passed to the agent answering a request outside a code channel.
+
+    The agent either replies in place or calls `create_code_channel`, which sets
+    `code_channel_id` so `answer_request` knows the work moved there.
+    """
+
+    client: AsyncWebClient
+    channel_id: str
+    message_ts: str
+    # The thread to reply in, or None to reply top-level, as in a direct message.
+    thread_ts: str | None
+    code_channel_id: str | None = None
 
 
 class CodeChannelSessionStore:

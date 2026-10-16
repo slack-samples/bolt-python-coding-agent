@@ -5,8 +5,7 @@ from unittest.mock import patch
 
 import agent.agent as agents_module
 from agent.agent import resume_run, run_request, start_run
-from agent.deps import AgentDeps, RequestDeps
-from agent.sessions import CodeChannelSession
+from agent.sessions import AgentDeps, CodeChannelSession, RequestDeps
 from tests.fake_model import FakeModel, call, say
 
 
@@ -22,7 +21,7 @@ class TestRuns:
         self, client, tmp_path
     ):
         session = CodeChannelSession(channel_id="C_CODE", workdir=str(tmp_path))
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         replaced, _ = coding_agent(
             lambda n: (
                 call("run_command", command="touch made", directory=None)
@@ -44,7 +43,7 @@ class TestRuns:
 
     async def test_a_denied_command_never_runs(self, client, tmp_path):
         session = CodeChannelSession(channel_id="C_CODE", workdir=str(tmp_path))
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         replaced, model = coding_agent(
             lambda n: (
                 call("run_command", command="touch made", directory=None)
@@ -66,7 +65,7 @@ class TestRuns:
 
     async def test_a_stopped_session_skips_tool_calls(self, client):
         session = CodeChannelSession(channel_id="C_CODE", stopped=True)
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         item = {"key": "repo", "label": "repo", "icon": None, "url": None}
         replaced, _ = coding_agent(
             lambda n: (
@@ -82,7 +81,7 @@ class TestRuns:
 
     async def test_running_out_of_turns_ends_with_a_message(self, client, tmp_path):
         session = CodeChannelSession(channel_id="C_CODE", workdir=str(tmp_path))
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         replaced, model = coding_agent(
             lambda n: call("run_command", command="pwd", directory=None)
         )
@@ -98,7 +97,7 @@ class TestRuns:
     async def test_archiving_ends_the_turn(self, client):
         client.chat_postMessage.return_value = {"ts": "9.9"}
         session = CodeChannelSession(channel_id="C_CODE")
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         replaced, model = coding_agent(
             lambda n: (
                 call("archive_channel", summary="Done.") if n == 1 else say("Extra.")
@@ -115,7 +114,6 @@ class TestRuns:
         client.agents_conversations_create.return_value = {"channel_id": "C_NEW"}
         deps = RequestDeps(
             client=client,
-            user_id="U123",
             channel_id="C_ORIGIN",
             message_ts="1.1",
             thread_ts="1.1",
@@ -138,7 +136,7 @@ class TestRuns:
 
     async def test_file_tools_work_without_approval(self, client, tmp_path):
         session = CodeChannelSession(channel_id="C_CODE", workdir=str(tmp_path))
-        deps = AgentDeps(client=client, session=session, user_id="U123")
+        deps = AgentDeps(client=client, session=session)
         steps = [
             call("write_file", path="src/hello.py", content="print('hi')\n"),
             call("edit_file", path="src/hello.py", old_text="hi", new_text="hello"),

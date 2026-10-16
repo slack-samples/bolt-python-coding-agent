@@ -8,9 +8,8 @@ from agents.tool_context import ToolContext
 from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
 
-from agent.deps import AgentDeps, RequestDeps
 from agent.guardrails import session_stopped
-from agent.sessions import CodeChannelSession
+from agent.sessions import AgentDeps, CodeChannelSession, RequestDeps
 from agent.tools import (
     archive_channel,
     clone_repo,
@@ -62,7 +61,7 @@ class TestTools:
     def setup_method(self):
         self.client = Mock(AsyncWebClient)
         self.session = CodeChannelSession(channel_id="C123")
-        self.deps = AgentDeps(client=self.client, session=self.session, user_id="U123")
+        self.deps = AgentDeps(client=self.client, session=self.session)
 
     async def test_set_context_bar_drops_unset_fields(self):
         await invoke(
@@ -277,7 +276,6 @@ class TestTools:
         )
         deps = RequestDeps(
             client=self.client,
-            user_id="U123",
             channel_id="C_ORIGIN",
             message_ts="1.1",
             thread_ts="1.1",

@@ -1,8 +1,8 @@
 from agents import function_tool
 from agents.run_context import RunContextWrapper
 
-from agent.deps import AgentDeps
 from agent.guardrails import session_stopped
+from agent.sessions import AgentDeps
 from agent.workspace import resolve_path
 
 

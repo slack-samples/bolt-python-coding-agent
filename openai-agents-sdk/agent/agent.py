@@ -22,9 +22,9 @@ from agents import (
     ToolsToFinalOutputResult,
 )
 
-from agent.deps import AgentDeps, RequestDeps
 from agent.outcome import RunOutcome
 from agent.prompts import REQUEST_PROMPT, SYSTEM_PROMPT
+from agent.sessions import AgentDeps, RequestDeps
 from agent.tools import (
     archive_channel,
     clone_repo,

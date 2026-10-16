@@ -27,7 +27,7 @@ import shlex
 from dataclasses import dataclass
 from typing import Any
 
-from agent.deps import AgentDeps
+from agent.sessions import AgentDeps
 
 # Programs that only read, so they run without asking.
 READ_ONLY_COMMANDS: frozenset[str] = frozenset(

@@ -5,8 +5,8 @@ from agents.run_context import RunContextWrapper
 from pydantic import BaseModel, Field
 from slack_sdk.errors import SlackApiError
 
-from agent.deps import AgentDeps
 from agent.guardrails import session_stopped
+from agent.sessions import AgentDeps
 
 
 class ContextBarItem(BaseModel):

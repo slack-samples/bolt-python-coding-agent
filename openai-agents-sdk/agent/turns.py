@@ -23,9 +23,8 @@ from slack_sdk.web.async_client import AsyncWebClient
 from agent.agent import resume_run, run_request, start_run
 from agent.approvals import PendingApproval, pending_store
 from agent.context import origin_context, recent_context, thread_context
-from agent.deps import AgentDeps, RequestDeps
 from agent.outcome import RunOutcome
-from agent.sessions import CodeChannelSession, session_store
+from agent.sessions import AgentDeps, CodeChannelSession, RequestDeps, session_store
 from agent.workspace import clip
 
 logger = logging.getLogger(__name__)
@@ -181,9 +180,7 @@ async def _run(deps: AgentDeps, run: Callable[[], Awaitable[RunOutcome]]) -> boo
         return False
 
 
-async def _run_inbox(
-    client: AsyncWebClient, session: CodeChannelSession, user_id: str
-) -> None:
+async def _run_inbox(client: AsyncWebClient, session: CodeChannelSession) -> None:
     """Run turns until the inbox is empty or a turn pauses on an approval."""
     while session.inbox and not session.archived:
         # A stop clears the inbox, so anything here was sent after it and picks
@@ -198,7 +195,7 @@ async def _run_inbox(
             )
             session.origin_context = None
 
-        deps = AgentDeps(client=client, session=session, user_id=user_id)
+        deps = AgentDeps(client=client, session=session)
         paused = await _run(deps, partial(start_run, session.history, text, deps))
         if paused:
             return
@@ -244,7 +241,6 @@ async def answer_request(
 
         deps = RequestDeps(
             client=client,
-            user_id=user_id,
             channel_id=channel_id,
             message_ts=message_ts,
             thread_ts=reply_ts,
@@ -341,7 +337,7 @@ async def run_turn(
                 replaced.message_ts,
                 f":fast_forward: *Skipped for a newer message:* ```{_shown(replaced.command)}```",
             )
-        await _run_inbox(client, session, user_id)
+        await _run_inbox(client, session)
 
 
 async def resume_turn(
@@ -380,7 +376,7 @@ async def resume_turn(
         paused = await _run(deps, partial(resume_run, pending.paused, approved, deps))
         # Messages sent while the command ran come next.
         if not paused:
-            await _run_inbox(client, session, deps.user_id)
+            await _run_inbox(client, session)
 
 
 async def stop_turn(*, client: AsyncWebClient, channel_id: str) -> None:

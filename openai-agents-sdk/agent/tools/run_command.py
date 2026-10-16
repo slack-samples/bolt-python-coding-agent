@@ -13,8 +13,8 @@ from pathlib import Path
 from agents import function_tool
 from agents.run_context import RunContextWrapper
 
-from agent.deps import AgentDeps
 from agent.guardrails import run_command_needs_approval, session_stopped
+from agent.sessions import AgentDeps
 from agent.workspace import clip, resolve_path, run
 
 # Cap any single command so a hung/looping command can't wedge the session.
