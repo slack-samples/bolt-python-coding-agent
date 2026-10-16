@@ -7,9 +7,10 @@ A sample Slack agent that showcases [Slack Code](https://docs.slack.dev/ai/slack
 
 ## Choose your framework
 
-| App                   | Directory            | Get started                                  | Framework                                                       |
-| --------------------- | -------------------- | -------------------------------------------- | --------------------------------------------------------------- |
-| **OpenAI Agents SDK** | `openai-agents-sdk/` | [View README](./openai-agents-sdk/README.md) | [openai-agents](https://openai.github.io/openai-agents-python/) |
+| App                   | Directory            | Get started                                  | Framework                                                                  |
+| --------------------- | -------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| **Claude Agent SDK**  | `claude-agent-sdk/`  | [View README](./claude-agent-sdk/README.md)  | [claude-agent-sdk](https://platform.claude.com/docs/en/agent-sdk/overview) |
+| **OpenAI Agents SDK** | `openai-agents-sdk/` | [View README](./openai-agents-sdk/README.md) | [openai-agents](https://openai.github.io/openai-agents-python/)            |
 
 ## What it can do
 
