@@ -1,4 +1,4 @@
-"""In-memory store mapping a code channel to its working session.
+"""Code channel sessions: their state, the deps each agent run gets, and the store.
 
 A code channel is one session, so state is keyed by the code channel's own
 channel_id. Each entry tracks the temp working directory the agent cloned into,
@@ -35,10 +35,12 @@ class CodeChannelSession:
     history: list = field(default_factory=list)
     # Messages waiting for the next turn, each starting with who sent it.
     inbox: list[str] = field(default_factory=list)
-    # Set by the native stop button. Checked before posting and before every
-    # tool call so a stopped session goes quiet; cleared when the user starts a new turn.
+    # Set by the native stop button, or when the session is discarded. Checked
+    # before posting and before every tool call so a stopped session goes quiet;
+    # cleared when the user starts a new turn.
     stopped: bool = False
-    # Set once the agent archives the channel; nothing more is posted after that.
+    # Set once the channel is archived, by the agent or from Slack; nothing more
+    # is posted after that.
     archived: bool = False
     # One turn at a time per channel, so turns don't race on history.
     turn_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
@@ -90,9 +92,16 @@ class CodeChannelSessionStore:
         self._store[session.channel_id] = session
 
     def discard(self, channel_id: str) -> None:
-        """Remove a session and clean up its working directory."""
+        """Remove a session and clean up its working directory.
+
+        The session is also marked archived and stopped, so a turn still running
+        in it calls no more tools and doesn't put it back when it finishes.
+        """
         session = self._store.pop(channel_id, None)
-        if session is not None and session.workdir:
+        if session is None:
+            return
+        session.archived = session.stopped = True
+        if session.workdir:
             shutil.rmtree(session.workdir, ignore_errors=True)
 
 
