@@ -4,13 +4,13 @@ Guidance for coding agents working in this directory. Refer to the root `../AGEN
 
 ## OpenAI Agents SDK specifics
 
-**Agents (`agent/agent.py`)** are two `Agent`s with pinned models: a routing `request_agent` (`gpt-6-luna`) whose only tool is `create_code_channel`, and the coding `agent` (`gpt-6.1-sol`) with every other tool. Tools are async `@function_tool` functions, one per file under `agent/tools/`, that read `RunContextWrapper[AgentDeps]` (or `RequestDeps`) for the Slack client and session. Both agents set `ModelSettings(truncation="auto")`, so a long session drops its oldest conversation instead of outgrowing the context window.
+**Agents (`agent/agent.py`)** are two `Agent`s with pinned models: a routing `request_agent` (`gpt-6-luna`) whose only tool is `create_code_channel`, and the coding `agent` (`gpt-6.1-sol`) with every other tool. Tools are async `@function_tool` functions, one per file under `agent/tools/`, that read `RunContextWrapper[AgentDeps]` (or `RequestDeps`, both in `agent/sessions.py`) for the Slack client and session. Both agents set `ModelSettings(truncation="auto")`, so a long session drops its oldest conversation instead of outgrowing the context window.
 
 **Runs** use `await Runner.run()` from async Bolt listeners. Coding turns allow `MAX_TURNS` model calls, and a turn that uses them all ends with a message through the SDK's `max_turns` error handler, so its history is kept. Each agent's `tool_use_behavior` ends the run early once there's nothing left to do: after `create_code_channel` succeeds for the routing agent, and after `archive_channel` for the coding agent.
 
 **Turns** go through `agent/turns.py`, which doesn't import the SDK. A turn that raises posts a warning and moves the session back to `active`, keeping the history from the last finished turn. Model-written replies use `markdown_text`, since the model writes standard markdown.
 
-**Stopping** sets `session.stopped`. Every code channel tool lists the `session_stopped` tool input guardrail (`agent/guardrails.py`), which skips the call and tells the model to wrap up, and the turn posts nothing when it finishes.
+**Stopping** sets `session.stopped`, and so does archiving the channel from Slack. Every code channel tool lists the `session_stopped` tool input guardrail (`agent/guardrails.py`), which skips the call and tells the model to wrap up, and the turn posts nothing when it finishes.
 
 **Conversation history** comes from `result.to_input_list()` and is stored on the `CodeChannelSession` (`agent/sessions.py`), keyed by code channel. Follow-up turns pass `session.history + [{"role": "user", "content": text}]`.
 
