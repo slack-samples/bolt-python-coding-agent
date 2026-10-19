@@ -8,6 +8,7 @@ A monorepo for a **Coding Agent** sample for Slack, built with Bolt for Python. 
 
 - `claude-agent-sdk/` — built with the **Claude Agent SDK**
 - `openai-agents-sdk/` — built with the **OpenAI Agents SDK**
+- `pydantic-ai/` — built with **Pydantic AI**
 
 Implementations share a structure and user experience, not code. Keep each one obvious on its own, written in its framework's idiom, rather than adding shared helpers.
 
@@ -34,6 +35,7 @@ pytest
 .github/             # Shared CI workflows and dependabot config
 claude-agent-sdk/    # Claude Agent SDK implementation
 openai-agents-sdk/   # OpenAI Agents SDK implementation
+pydantic-ai/         # Pydantic AI implementation
 ```
 
 CI runs ruff and pytest against each directory with a matrix in `.github/workflows/ci.yml`. Dependabot watches each directory separately. When adding an implementation, add its directory to both job matrices, to `.github/dependabot.yml`, and to the framework table in the root `README.md`.

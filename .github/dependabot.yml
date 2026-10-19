@@ -5,6 +5,7 @@ updates:
       - "/"
       - "/claude-agent-sdk"
       - "/openai-agents-sdk"
+      - "/pydantic-ai"
     schedule:
       interval: "daily"
     cooldown:
