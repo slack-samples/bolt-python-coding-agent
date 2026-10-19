@@ -36,7 +36,7 @@ openai-agents-sdk/   # OpenAI Agents SDK implementation
 pydantic-ai/         # Pydantic AI implementation
 ```
 
-CI runs ruff and pytest against each directory with a matrix in `.github/workflows/ruff.yml` and `.github/workflows/tests.yml`. Dependabot watches each directory separately. When adding an implementation, add its directory to both workflow matrices, to `.github/dependabot.yml`, and to the framework table in the root `README.md`.
+CI runs ruff and pytest against each directory with a matrix in `.github/workflows/ci.yml`. Dependabot watches each directory separately. When adding an implementation, add its directory to both job matrices, to `.github/dependabot.yml`, and to the framework table in the root `README.md`.
 
 ## Architecture
 
