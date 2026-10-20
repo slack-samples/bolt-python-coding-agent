@@ -1,3 +1,9 @@
+# Defined before the tool imports below, since each tool imports it from here.
+def tool_result(text: str) -> dict:
+    """A tool's reply to the model."""
+    return {"content": [{"type": "text", "text": text}]}
+
+
 from .archive_channel import archive_channel
 from .clone_repo import clone_repo
 from .create_code_channel import create_code_channel

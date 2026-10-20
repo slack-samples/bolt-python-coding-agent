@@ -1,7 +1,8 @@
 from claude_agent_sdk import tool
 from slack_sdk.errors import SlackApiError
 
-from agent.runtime import current_deps, tool_result
+from agent.sessions import current_deps
+from agent.tools import tool_result
 
 DESCRIPTION = """\
 Set the items pinned to the context bar at the top of the code channel.

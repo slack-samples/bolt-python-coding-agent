@@ -25,7 +25,7 @@ from claude_agent_sdk import (
 )
 
 from agent.approvals import command_needs_approval
-from agent.runtime import current_deps
+from agent.sessions import current_deps
 
 logger = getLogger(__name__)
 

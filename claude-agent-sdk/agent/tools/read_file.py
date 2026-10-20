@@ -1,6 +1,7 @@
 from claude_agent_sdk import tool
 
-from agent.runtime import current_deps, tool_result
+from agent.sessions import current_deps
+from agent.tools import tool_result
 from agent.workspace import resolve_path
 
 # Enough to read most source files whole, without one file crowding the turn.

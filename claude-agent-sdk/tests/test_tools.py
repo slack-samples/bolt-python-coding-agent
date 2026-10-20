@@ -8,8 +8,7 @@ from slack_sdk.errors import SlackApiError
 from slack_sdk.web.async_client import AsyncWebClient
 
 from agent.guardrails import gate_tool_calls
-from agent.runtime import current_deps
-from agent.sessions import AgentDeps, CodeChannelSession, RequestDeps
+from agent.sessions import AgentDeps, CodeChannelSession, RequestDeps, current_deps
 from agent.tools import (
     archive_channel,
     clone_repo,

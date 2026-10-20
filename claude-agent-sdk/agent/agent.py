@@ -22,8 +22,7 @@ from claude_agent_sdk import (
 from agent.guardrails import answer_unanswered, gate_tool_calls
 from agent.outcome import RunOutcome
 from agent.prompts import REQUEST_PROMPT, SYSTEM_PROMPT
-from agent.runtime import current_deps
-from agent.sessions import AgentDeps, RequestDeps
+from agent.sessions import AgentDeps, RequestDeps, current_deps
 from agent.tools import (
     archive_channel,
     clone_repo,
