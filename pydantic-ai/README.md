@@ -143,7 +143,7 @@ pip install -e ".[dev]"
 
 ## Providers
 
-This app supports both Anthropic and OpenAI as AI providers. Set at least one API key. If both are set, Anthropic is used by default.
+This app supports both Anthropic and OpenAI as AI providers. Set at least one API key — if both are set, Anthropic is used by default.
 
 ### Anthropic Setup
 
@@ -272,15 +272,15 @@ python3 app_oauth.py
 
 ### Using the App
 
-Once the agent is running, invite it to a channel by typing `/invite @agent-name` in the message box.
-
-**Channel @mentions** — @mention the agent in a thread with a question about the conversation, like _what did we decide here?_, and it answers in the thread. @mention it with a task and a repo, like _add a "hello world" to the README of `<repo>`_, and it replies with a link to a new code channel for the work.
-
-**Direct messages** — Open the agent's _Messages_ tab and ask a question or describe a task, or pick a suggested prompt. It answers there, or links a code channel for bigger work.
-
-**Code channels** — Follow the work in the new channel. Approve or deny commands as they come up, comment on the Plan tab, review the diff in the code tab, and send follow-ups without an @mention. Say you're done to wrap up and archive the channel.
+Once the agent is running, there are several ways to interact:
 
 **App Home** — Open the agent in Slack and click the _Home_ tab to see how to start a task.
+
+**Direct Messages** — Open the agent's _Messages_ tab and ask a question or describe a task, or pick a suggested prompt. It answers there, or links a code channel for bigger work.
+
+**Channel @mentions** — Invite the agent to a channel by typing `/invite @agent-name` in the message box, then @mention it in a thread with a question about the conversation, like _what did we decide here?_, and it answers in the thread. @mention it with a task and a repo, like _add a "hello world" to the README of `<repo>`_, and it replies with a link to a new code channel for the work.
+
+**Code Channels** — Follow the work in the new channel. Approve or deny commands as they come up, comment on the Plan tab, review the diff in the code tab, and send follow-ups without an @mention. Say you're done to wrap up and archive the channel.
 
 ### Linting
 
@@ -295,7 +295,8 @@ ruff format
 ### Testing
 
 ```sh
-pytest
+# Run pytest from root directory for unit testing
+pytest .
 ```
 
 ## Project Structure
@@ -336,7 +337,7 @@ Every incoming request is routed to a "listener". This directory groups each lis
 
 ### `/agent`
 
-The `agent.py` file defines the routing agent and the coding agent with their tools, picks their models, and starts and resumes their runs. It and `guardrails.py` are the only files outside `tools` that use Pydantic AI.
+The `agent.py` file defines the routing agent and the coding agent with their tools, picks their models, and starts and resumes their runs. Along with `guardrails.py` and `tools`, it's the only code that uses Pydantic AI.
 
 The `prompts.py` file holds both agents' prompts.
 

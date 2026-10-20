@@ -262,15 +262,15 @@ python3 app_oauth.py
 
 ### Using the App
 
-Once the agent is running, invite it to a channel by typing `/invite @agent-name` in the message box.
-
-**Channel @mentions** — @mention the agent in a thread with a question about the conversation, like _what did we decide here?_, and it answers in the thread. @mention it with a task and a repo, like _add a "hello world" to the README of `<repo>`_, and it replies with a link to a new code channel for the work.
-
-**Direct messages** — Open the agent's _Messages_ tab and ask a question or describe a task, or pick a suggested prompt. It answers there, or links a code channel for bigger work.
-
-**Code channels** — Follow the work in the new channel. Approve or deny commands as they come up, comment on the Plan tab, review the diff in the code tab, and send follow-ups without an @mention. Say you're done to wrap up and archive the channel.
+Once the agent is running, there are several ways to interact:
 
 **App Home** — Open the agent in Slack and click the _Home_ tab to see how to start a task.
+
+**Direct Messages** — Open the agent's _Messages_ tab and ask a question or describe a task, or pick a suggested prompt. It answers there, or links a code channel for bigger work.
+
+**Channel @mentions** — Invite the agent to a channel by typing `/invite @agent-name` in the message box, then @mention it in a thread with a question about the conversation, like _what did we decide here?_, and it answers in the thread. @mention it with a task and a repo, like _add a "hello world" to the README of `<repo>`_, and it replies with a link to a new code channel for the work.
+
+**Code Channels** — Follow the work in the new channel. Approve or deny commands as they come up, comment on the Plan tab, review the diff in the code tab, and send follow-ups without an @mention. Say you're done to wrap up and archive the channel.
 
 ### Linting
 
@@ -285,7 +285,8 @@ ruff format
 ### Testing
 
 ```sh
-pytest
+# Run pytest from root directory for unit testing
+pytest .
 ```
 
 ## Project Structure
@@ -336,7 +337,7 @@ The `outcome.py` file defines the `RunOutcome` that `agent.py` returns and `turn
 
 The `context.py` file reads the thread or direct message a request came from, so the agent can follow the conversation.
 
-The `guardrails.py` file holds the SDK hooks that gate tool calls: the approval check for `run_command`, which defers a command that needs approval, and the check that skips every tool call once the session is stopped.
+The `guardrails.py` file holds the SDK hooks around tool calls: the approval check for `run_command`, which defers a command that needs approval, and the check that skips every tool call once the session is stopped.
 
 The `sessions.py` file keeps each code channel's session in memory: its working directory, plan canvas, conversation history, and messages waiting for the next turn. It also defines the `AgentDeps` and `RequestDeps` dataclasses passed to the agents at runtime, providing access to the Slack client and the session or request.
 
