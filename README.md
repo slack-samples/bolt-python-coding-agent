@@ -13,6 +13,46 @@ A sample Slack agent that showcases [Slack Code](https://docs.slack.dev/ai/slack
 | **OpenAI Agents SDK** | `openai-agents-sdk/` | [View README](./openai-agents-sdk/README.md) | [openai-agents](https://openai.github.io/openai-agents-python/)            |
 | **Pydantic AI**       | `pydantic-ai/`       | [View README](./pydantic-ai/README.md)       | [pydantic-ai](https://pydantic.dev/docs/ai/overview/)                      |
 
+## Claude Code, Codex, Cursor, and Other Coding Agents
+
+Install the [Slack MCP and Skills Plugin](https://docs.slack.dev/ai/slack-skills-plugin/) so your coding agent can create, run, and deploy Slack apps, look up Web API methods and scopes, and build Block Kit without guessing.
+
+### Claude Code
+
+Run this in a Claude Code session:
+
+```
+/plugin install slack@claude-plugins-official
+```
+
+### Codex
+
+Run this in your terminal:
+
+```sh
+codex plugin marketplace add slackapi/slack-skills-plugin
+codex plugin add slack@slack
+```
+
+### Cursor
+
+Run this in a Cursor Agent chat:
+
+```
+/add-plugin slack
+```
+
+### Other agents
+
+Install the skills with `npx skills`, using your [agent's identifier](https://github.com/vercel-labs/skills#supported-agents):
+
+```sh
+npx skills add slackapi/slack-skills-plugin -y -a <agent>
+
+# For example, OpenCode
+npx skills add slackapi/slack-skills-plugin -y -a opencode
+```
+
 ## What it can do
 
 - **Channel @mentions and direct messages** — Mention the agent with a task, or message it directly. Quick questions get an answer in place; work that takes more than one message gets a code channel linked back to your message, along with the conversation it came from.
