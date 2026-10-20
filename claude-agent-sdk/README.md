@@ -338,10 +338,12 @@ The `context.py` file reads the thread or direct message a request came from, so
 
 The `guardrails.py` file holds the SDK hooks that gate tool calls: the approval check for `run_command`, which defers a command that needs approval, and the check that skips every tool call once the session is stopped.
 
-The `sessions.py` file keeps each code channel's session in memory: its working directory, plan canvas, conversation history, and messages waiting for the next turn. It also defines the `AgentDeps` and `RequestDeps` dataclasses passed to the agents at runtime, providing access to the Slack client and the session or request, and `current_deps`, which hands them to the tools and hooks since the SDK can't pass them to a tool.
+The `sessions.py` file keeps each code channel's session in memory: its working directory, plan canvas, conversation history, and messages waiting for the next turn. It also defines the `AgentDeps` and `RequestDeps` dataclasses passed to the agents at runtime, providing access to the Slack client and the session or request.
 
 The `approvals.py` file decides which commands need approval and holds runs paused on one.
 
+The `runtime.py` file holds what the tools and hooks share during a run: its deps, which the SDK can't pass to a tool, and the shape of a tool's reply.
+
 The `workspace.py` file runs commands in the clone without the app's secrets, and keeps file tools inside it.
 
-The `tools` directory contains one file per tool the agents can call, and `tool_result` in its `__init__.py` for the shape of a tool's reply.
+The `tools` directory contains one file per tool the agents can call.

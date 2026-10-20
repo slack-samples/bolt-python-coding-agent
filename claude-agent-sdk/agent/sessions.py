@@ -7,15 +7,11 @@ follow-up turns in the channel resume the same context. A session is discarded
 when its channel is archived.
 
 The deps passed to each agent run live here too: `AgentDeps` for a turn in a
-code channel, and `RequestDeps` for a request outside one. The Claude Agent SDK
-calls a tool with only its arguments, so `agent/agent.py` sets the run's deps in
-`current_deps` before each run starts, and the tools and the hooks in
-`agent/guardrails.py` read them back.
+code channel, and `RequestDeps` for a request outside one.
 """
 
 import asyncio
 import shutil
-from contextvars import ContextVar
 from dataclasses import dataclass, field
 
 from slack_sdk.web.async_client import AsyncWebClient
@@ -81,9 +77,6 @@ class RequestDeps:
     # The thread to reply in, or None to reply top-level, as in a direct message.
     thread_ts: str | None
     code_channel_id: str | None = None
-
-
-current_deps: ContextVar[AgentDeps | RequestDeps] = ContextVar("current_deps")
 
 
 class CodeChannelSessionStore:

@@ -1,8 +1,7 @@
 from claude_agent_sdk import tool
 from slack_sdk.errors import SlackApiError
 
-from agent.sessions import current_deps
-from agent.tools import tool_result
+from agent.runtime import current_deps, tool_result
 
 DESCRIPTION = """\
 Read the Plan tab and any open comments people left on it.

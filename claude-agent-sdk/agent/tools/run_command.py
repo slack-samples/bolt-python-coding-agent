@@ -12,8 +12,7 @@ from pathlib import Path
 
 from claude_agent_sdk import tool
 
-from agent.sessions import current_deps
-from agent.tools import tool_result
+from agent.runtime import current_deps, tool_result
 from agent.workspace import clip, resolve_path, run
 
 # Cap any single command so a hung/looping command can't wedge the session.

@@ -5,8 +5,7 @@ from tempfile import mkdtemp
 
 from claude_agent_sdk import tool
 
-from agent.sessions import current_deps
-from agent.tools import tool_result
+from agent.runtime import current_deps, tool_result
 from agent.workspace import run
 
 # Cap the clone so an unreachable or huge repository can't wedge the session.
