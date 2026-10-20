@@ -16,7 +16,9 @@ jobs:
     strategy:
       matrix:
         directory:
+          - claude-agent-sdk
           - openai-agents-sdk
+          - pydantic-ai
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
@@ -42,7 +44,9 @@ jobs:
     strategy:
       matrix:
         directory:
+          - claude-agent-sdk
           - openai-agents-sdk
+          - pydantic-ai
     defaults:
       run:
         working-directory: ${{ matrix.directory }}
