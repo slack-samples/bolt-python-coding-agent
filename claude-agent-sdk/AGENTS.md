@@ -2,6 +2,10 @@
 
 Guidance for coding agents working in this directory. Refer to the root `../AGENTS.md` for repository-wide structure and commands.
 
+## Slack plugin
+
+To install the Slack plugin for your coding agent, follow [Claude Code, Codex, Cursor, and Other Coding Agents](./README.md#claude-code-codex-cursor-and-other-coding-agents) in the README.
+
 ## Claude Agent SDK specifics
 
 **Agents (`agent/agent.py`)** are two sets of `ClaudeAgentOptions` with pinned models: a routing agent (`claude-haiku-4-5`) whose only tool is `create_code_channel`, and the coding agent (`claude-sonnet-5-5`) with every other tool. Tools are async `@tool` functions, one per file under `agent/tools/`, each with a JSON Schema for its arguments. They're served in-process by `create_sdk_mcp_server()`, so the model sees each as `mcp__coding-agent__<name>`. Both agents set `tools=[]`, `setting_sources=[]`, and `strict_mcp_config=True`, so they get none of Claude Code's built-in tools and none of the settings, `CLAUDE.md` files, or MCP servers on the machine. `verbatim_prompts=True` keeps an `@path` in a Slack message from reading a local file.
