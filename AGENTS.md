@@ -12,6 +12,10 @@ A monorepo for a **Coding Agent** sample for Slack, built with Bolt for Python. 
 
 Implementations share a structure and user experience, not code. Keep each one obvious on its own, written in its framework's idiom, rather than adding shared helpers.
 
+## Slack plugin
+
+To install the Slack plugin for your coding agent, follow [Claude Code, Codex, Cursor, and Other Coding Agents](./README.md#claude-code-codex-cursor-and-other-coding-agents) in the README.
+
 ## Commands
 
 Run these from inside an implementation directory, such as `openai-agents-sdk/`:
@@ -28,6 +32,10 @@ ruff format --check .
 # Run tests
 pytest
 ```
+
+## Code style
+
+No code comments. Make the code explain itself with clear names, tests, or types. Put the reason for a change in the PR description.
 
 ## Repository structure
 

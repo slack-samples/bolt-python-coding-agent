@@ -2,6 +2,10 @@
 
 Guidance for coding agents working in this directory. Refer to the root `../AGENTS.md` for repository-wide structure and commands.
 
+## Slack plugin
+
+To install the Slack plugin for your coding agent, follow [Claude Code, Codex, Cursor, and Other Coding Agents](./README.md#claude-code-codex-cursor-and-other-coding-agents) in the README.
+
 ## Pydantic AI specifics
 
 **Agents (`agent/agent.py`)** are two Pydantic AI `Agent`s: a routing `request_agent` whose only tool is `create_code_channel`, and the coding `agent` with every other tool. Neither sets a model. A `SelectModel` capability picks one when a run starts, by which API key is set: Anthropic (`claude-haiku-4-5` to route, `claude-sonnet-5-5` to code) when `ANTHROPIC_API_KEY` is set, else OpenAI (`gpt-6-luna` and `gpt-6.1-sol`). So no model client is created at import. Tools are async functions, one per file under `agent/tools/`, passed with `tools=[...]`. Each takes `RunContext[AgentDeps]` (or `RequestDeps`, both in `agent/sessions.py`) for the Slack client and session, and Pydantic AI reads its docstring for the description the model sees. The coding agent lists `AnthropicCompaction` and `OpenAICompaction`, so a long session compacts its oldest conversation instead of outgrowing the context window. Each only applies to its own provider's models.
